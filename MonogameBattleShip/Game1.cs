@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices.Marshalling;
 using System.Xml;
@@ -83,54 +84,59 @@ namespace MonogameBattleShip
         public Button b_HardAi;
         public Button b_AiMainMenu;
 
-        public int diff = -1;
+        public float difficulty = -1f;
 
+        // Rendering sizes
         public Texture2D _whiteTexture;
         public int screen = 0;
-        public Button myBut;
-        public List<Button> mybuts;
         public int ww = 1700;
         public int wh = 956;
-        public int i_board_edge = 640;
+        public int board_edge_pix = 640;
 
+        // Boards
+        public int[,] board_player;
+        public int[,] board_ai;
 
-        public int[,] t_player;
-        public int[,] t_ai;
+        public int[,] waterframes_player;
+        public int[,] waterframes_ai;
+        public int board_x = 140;
+        public int board_y = 158;
+        public KeyboardState keyboard;
+        public int tile_x;
+        public int tile_y;
+        public int odvoj;
+        public int[,] enemyFog;
 
-        public int[,] t_player2;
-        public int[,] t_ai2;
-        public int t_x = 140;//(int)(ww / 2) - (int)(i_board_edge * 0.7);
-        public int t_y = 158;//(int)(wh * 0.05);
-        public KeyboardState ks;// = Keyboard.GetState()
-        public int nmx;
-        public int nmy;
         // Ship placing
-        private int ship_type;
-        //public int[] ship_ids = new int[7] {0,0, 12, 13, 23, 14, 15 };
-        // 0 1 2 3 4 5
+        private int ship_length;
+
         private int[] ship_counts = new int[] { 0, 0, 1, 2, 1, 1 };
-        // number_left*10+length_of_ship
+
+        // Input stuff
         private Vector2 placePos = new Vector2();
         private MouseState currentMouseState;
         private bool wasHolding = false;
         private bool R_wasHolding = false;
         private int rotation = 0;
         public List<Texture2D> waterImgs = new List<Texture2D> { };
+        public int waitForTurn = 0;
+        public bool isMyTurn = true;
         // Guesses
         public List<Vector2> guesses = new List<Vector2> { };
         public List<Vector2> guesses_ai = new List<Vector2> { };
+
+        // Textures
         public int waterFrame = 0;
         public int animationSlow = 50;
         public int animationSpeed = 3;
-
         Dictionary<string, Texture2D> brodovi = new Dictionary<string, Texture2D> { };
         Dictionary<int, List<int>> stats = new Dictionary<int, List<int>> { };
+        Texture2D fog = null;
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
-
             _graphics.PreferredBackBufferWidth = ww;
             _graphics.PreferredBackBufferHeight = wh;
             _graphics.ApplyChanges();
@@ -138,6 +144,24 @@ namespace MonogameBattleShip
 
         }
 
+        public static void dump(int[,] matrix, string path)
+        {
+            using (StreamWriter writer = new StreamWriter(path))
+            {
+                int rows = matrix.GetLength(0);
+                int cols = matrix.GetLength(1);
+
+                for (int i = 0; i < rows; i++)
+                {
+                    string[] line = new string[cols];
+                    for (int j = 0; j < cols; j++)
+                    {
+                        line[j] = matrix[i, j].ToString();
+                    }
+                    writer.WriteLine(string.Join("\t", line)); // You can use "," or " " instead of "\t"
+                }
+            }
+        }
 
         protected override void Initialize()
         {
@@ -149,12 +173,10 @@ namespace MonogameBattleShip
             b_exit = new Button(0.4f, 0.5f, 0.2f, 0.15f, "Exit", _whiteTexture);
 
             b_EasyAi = new Button(0.4f, 0.1f, 0.2f, 0.1f, "Ez", _whiteTexture);
-            b_NormalAi = new Button(0.4f, 0.3f, 0.2f, 0.1f, "Normal", _whiteTexture);
-            b_HardAi = new Button(0.4f, 0.5f, 0.2f, 0.1f, "Hard", _whiteTexture);
             b_AiMainMenu = new Button(0.35f, 0.7f, 0.3f, 0.1f, "Main Menu", _whiteTexture);
 
-            t_ai = new int[10, 10];
-            t_player = new int[10, 10];
+            board_ai = new int[10, 10];
+            board_player = new int[10, 10];
 
             for (int y = 0; y < 10; y++)
             {
@@ -162,48 +184,37 @@ namespace MonogameBattleShip
                 {
                     if ((x + y) % 2 == 0)
                     {
-                        t_player[y, x] = 0;
+                        board_player[y, x] = 0;
                     }
                 }
             }
 
-            int[,] test = AIPlace();
-            for (int y = 0; y < 10; y++)
-            {
-                for (int x = 0; x < 10; x++)
-                {
-                    Console.WriteLine(test[y, x]);
-                }
-            }
+            board_ai = AIPlace();
+            
 
-            t_ai2 = new int[10, 10];
-            t_player2 = new int[10, 10];
+            waterframes_ai = new int[10, 10];
+            waterframes_player = new int[10, 10];
+            enemyFog = new int[10, 10];
             Random rn = new Random();
             for (int y = 0; y < 10; y++)
             {
                 for (int x = 0; x < 10; x++)
                 {
-                    t_ai2[y, x] = rn.Next(1, 39);
-                    t_player2[y, x] = rn.Next(1, 39);
+                    waterframes_ai[y, x] = rn.Next(1, 39);
+                    waterframes_player[y, x] = rn.Next(1, 39);
 
                 }
             }
 
-
-
-            //t_ai2 = new int[10, 10];
-            //t_player2 = new int[10, 10];
-            t_ai = test;
-
+            
             base.Initialize();
         }
 
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-            mybuts = new List<Button> { };
             font = Content.Load<SpriteFont>("DefaultFont");
-
+            fog = Content.Load<Texture2D>("fog");
             for (int i = 0; i < 40; i++)
             {
                 string imgName = i.ToString("D4");
@@ -215,7 +226,6 @@ namespace MonogameBattleShip
             brodovi["ship14"] = Content.Load<Texture2D>("ship14");
             brodovi["ship15"] = Content.Load<Texture2D>("ship15");
             brodovi["ship23"] = Content.Load<Texture2D>("ship23");
-
         }
 
         private int[,] AIPlace()
@@ -306,10 +316,10 @@ namespace MonogameBattleShip
 
         protected override void Update(GameTime gameTime)
         {
-            ks = Keyboard.GetState();
+            keyboard = Keyboard.GetState();
             currentMouseState = Mouse.GetState();
-            nmx = (currentMouseState.X - t_x) / (i_board_edge / 10);
-            nmy = (currentMouseState.Y - t_y) / (i_board_edge / 10);
+            tile_x = (currentMouseState.X - board_x) / (board_edge_pix / 10);
+            tile_y = (currentMouseState.Y - board_y) / (board_edge_pix / 10);
             animationSlow -= 1;
             if (animationSlow == 0)
             {
@@ -318,52 +328,52 @@ namespace MonogameBattleShip
                 {
                     for (int x = 0; x < 10; x++)
                     {
-
-
-                        t_ai2[y, x] += 1;
-                        t_ai2[y, x] %= 40;
-                        t_player2[y, x] += 1;
-                        t_player2[y, x] %= 40;
-
+                        if (enemyFog[y, x] != 0)
+                        {
+                            waterframes_ai[y, x] += 1;
+                            waterframes_ai[y, x] %= 40;
+                        }
+                        waterframes_player[y, x] += 1;
+                        waterframes_player[y, x] %= 40;
                     }
                 }
             }
-            if (ks.IsKeyDown(Keys.D2))
+            if (keyboard.IsKeyDown(Keys.D2))
             {
-                ship_type = 2;
+                ship_length = 2;
+            }
+            if (keyboard.IsKeyDown(Keys.D3))
+            {
+                ship_length = 3;
             }
 
-            if (ks.IsKeyDown(Keys.D3))
+            if (keyboard.IsKeyDown(Keys.D4))
             {
-                ship_type = 3;
+                ship_length = 4;
             }
 
-            if (ks.IsKeyDown(Keys.D4))
+            if (keyboard.IsKeyDown(Keys.D5))
             {
-                ship_type = 4;
+                ship_length = 5;
             }
-
-            if (ks.IsKeyDown(Keys.D5))
-            {
-                ship_type = 5;
-            }
-            if (ks.IsKeyDown(Keys.Left))
+            if (keyboard.IsKeyDown(Keys.Left))
             {
                 screen = 200;
+                dump(board_ai, "C:\\users\\luka9\\downloads\\board_ai.txt");
+                dump(board_player, "C:\\users\\luka9\\downloads\\board_pl.txt");
+                int a = 5;
             }
-            if (ks.IsKeyDown(Keys.Right))
+            if (keyboard.IsKeyDown(Keys.Right))
             {
                 screen = 300;
             }
 
-            if (ks.IsKeyDown(Keys.R))
+            if (keyboard.IsKeyDown(Keys.R))
             {
                 if (R_wasHolding == false)
                 {
                     rotation = 1 - rotation;
                     R_wasHolding = true;
-
-
                 }
             }
             else
@@ -372,18 +382,19 @@ namespace MonogameBattleShip
             }
             if (rotation == 0)
             {
-                nmy = Math.Max(0, Math.Min(nmy, 9));
-                nmx = Math.Max(Math.Min(nmx, 10 - ship_type), 0);
+                tile_y = Math.Max(0, Math.Min(tile_y, 9));
+                tile_x = Math.Max(Math.Min(tile_x, 10 - ship_length), 0);
             }
             if (rotation == 1)
             {
-                nmx = Math.Max(0, Math.Min(nmx, 9));
-                nmy = Math.Max(Math.Min(nmy, 10 - ship_type), 0);
+                tile_x = Math.Max(0, Math.Min(tile_x, 9));
+                tile_y = Math.Max(Math.Min(tile_y, 10 - ship_length), 0);
             }
 
-            placePos = new Vector2(nmx, nmy);
+            placePos = new Vector2(tile_x, tile_y);
             if (currentMouseState.LeftButton == ButtonState.Pressed)
             {
+                // Main menu
                 if (screen == 0)
                 {
                     if (b_vsAi.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
@@ -401,23 +412,12 @@ namespace MonogameBattleShip
                         Exit();
                     }
                 }
+                // V.S. AI Sub-Menu
                 if (screen == 1)
                 {
                     if (b_EasyAi.Update(currentMouseState.X, currentMouseState.Y, ww, wh) && wasHolding == false)
                     {
-                        diff = 0;
-                        screen = 100;
-                        wasHolding = true;
-                    }
-                    if (b_NormalAi.Update(currentMouseState.X, currentMouseState.Y, ww, wh) && wasHolding == false)
-                    {
-                        screen = 100;
-                        diff = 1;
-                        wasHolding = true;
-                    }
-                    if (b_HardAi.Update(currentMouseState.X, currentMouseState.Y, ww, wh) && wasHolding == false)
-                    {
-                        diff = 2;
+                        difficulty = 0.0f;
                         screen = 100;
                         wasHolding = true;
                     }
@@ -428,18 +428,17 @@ namespace MonogameBattleShip
                         wasHolding = true;
                     }
                 }
+                // Placer
                 if (screen == 100)
                 {
-                    if (nmx >= 0 && nmx < 10 && nmy >= 0 && nmy < 10 && wasHolding == false && ship_counts[ship_type] > 0)
+                    if (tile_x >= 0 && tile_x < 10 && tile_y >= 0 && tile_y < 10 && wasHolding == false && ship_counts[ship_length] > 0)
                     {
-
-                        //t_player[nmy, nmx] = 1;
                         if (rotation == 0)
                         {
                             bool nasliSmoBrod = false;
-                            for (int i = 0; i < ship_type; i++)
+                            for (int i = 0; i < ship_length; i++)
                             {
-                                if (t_player[nmy, nmx + i] != 0)
+                                if (board_player[tile_y, tile_x + i] != 0)
                                 {
                                     nasliSmoBrod = true;
                                     break;
@@ -447,20 +446,20 @@ namespace MonogameBattleShip
                             }
                             if (!nasliSmoBrod)
                             {
-                                stats[ship_counts[ship_type] * 10 + ship_type] = new List<int> { nmy, nmx, rotation }; 
-                                for (int i = 0; i < ship_type; i++)
+                                stats[ship_counts[ship_length] * 10 + ship_length] = new List<int> { tile_y, tile_x, rotation }; 
+                                for (int i = 0; i < ship_length; i++)
                                 {
-                                    t_player[nmy, nmx + i] = ship_counts[ship_type] * 10 + ship_type;
+                                    board_player[tile_y, tile_x + i] = ship_counts[ship_length] * 10 + ship_length;
                                 }
-                                ship_counts[ship_type] -= 1;
+                                ship_counts[ship_length] -= 1;
                             }
                         }
                         if (rotation == 1)
                         {
                             bool nasliSmoBrod = false;
-                            for (int i = 0; i < ship_type; i++)
+                            for (int i = 0; i < ship_length; i++)
                             {
-                                if (t_player[nmy + i, nmx] != 0)
+                                if (board_player[tile_y + i, tile_x] != 0)
                                 {
                                     nasliSmoBrod = true;
                                     break;
@@ -468,23 +467,23 @@ namespace MonogameBattleShip
                             }
                             if (!nasliSmoBrod)
                             {
-                                stats[ship_counts[ship_type] * 10 + ship_type] = new List<int> { nmy, nmx, rotation };
-                                for (int i = 0; i < ship_type; i++)
+                                stats[ship_counts[ship_length] * 10 + ship_length] = new List<int> { tile_y, tile_x, rotation };
+                                for (int i = 0; i < ship_length; i++)
                                 {
-                                    t_player[nmy + i, nmx] = ship_counts[ship_type] * 10 + ship_type;
+                                    board_player[tile_y + i, tile_x] = ship_counts[ship_length] * 10 + ship_length;
                                 }
-                                ship_counts[ship_type] -= 1;
+                                ship_counts[ship_length] -= 1;
                             }
                         }
 
                     }
-
                 }
-                if (screen == 300)
+                // Attack
+                if (screen == 200)
                 {
-                    if (nmx >= 0 && nmx < 10 && nmy >= 0 && nmy < 10)
+                    if (tile_x >= 0 && tile_x < 10 && tile_y >= 0 && tile_y < 10 && isMyTurn)
                     {
-                        Vector2 guess = new Vector2((currentMouseState.X - t_x) / (i_board_edge / 10), (currentMouseState.Y - t_y) / (i_board_edge / 10));
+                        Vector2 guess = new Vector2((currentMouseState.X - board_x-odvoj) / (board_edge_pix / 10), (currentMouseState.Y - board_y) / (board_edge_pix / 10));
                         bool nasli = false;
 
                         for (int i = 0; i < guesses.Count; i++)
@@ -500,11 +499,14 @@ namespace MonogameBattleShip
                             if (guess.X < 10 && guess.X >= 0 && guess.Y < 10 && guess.Y >= 0)
                             {
                                 guesses.Add(guess);
-
+                                if (board_ai[(int)(guess.Y), (int)(guess.X)] == 0)
+                                {
+                                    enemyFog[(int)(guess.Y), (int)(guess.X)] = 1;
+                                }
+                                waitForTurn = 30;
+                                isMyTurn = false;
                                 // Ai Guess
-                                Random nr = new Random();
-                                Vector2 guess_ai = new Vector2(nr.Next(0, 10), nr.Next(0, 10));
-                                guesses_ai.Add(guess_ai);
+
                             }
                         }
                     }
@@ -515,8 +517,21 @@ namespace MonogameBattleShip
                 wasHolding = false;
             }
 
+            if (!isMyTurn)
+            {
+                waitForTurn -= 1;
+            }
 
-            if (ks.IsKeyDown(Keys.Escape))
+            if (waitForTurn <= 0)
+            {
+                Random nr = new Random();
+                Vector2 guess_ai = new Vector2(nr.Next(0, 10), nr.Next(0, 10));
+                guesses_ai.Add(guess_ai);
+                waitForTurn = 30;
+                isMyTurn = true;
+            }
+
+            if (keyboard.IsKeyDown(Keys.Escape))
                 Exit();
 
             base.Update(gameTime);
@@ -527,7 +542,7 @@ namespace MonogameBattleShip
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.Gray); // Red background
-            int odvoj = (int)(i_board_edge * 1.2f);
+            odvoj = (int)(board_edge_pix * 1.2f);
             _spriteBatch.Begin();
 
             if (screen == 0)
@@ -539,8 +554,6 @@ namespace MonogameBattleShip
             if (screen == 1)
             {
                 b_EasyAi.Draw(_spriteBatch, font, ww, wh);
-                b_NormalAi.Draw(_spriteBatch, font, ww, wh);
-                b_HardAi.Draw(_spriteBatch, font, ww, wh);
                 b_AiMainMenu.Draw(_spriteBatch, font, ww, wh);
             }
 
@@ -550,13 +563,13 @@ namespace MonogameBattleShip
                 {
                     for (int x = 0; x < 10; x++)
                     {
-                        if (t_player[y, x] == 0)
+                        if (board_player[y, x] == 0)
                         {
-                            _spriteBatch.Draw(_whiteTexture, new Rectangle(t_x + (x * i_board_edge) / 10, t_y + (y * i_board_edge) / 10, i_board_edge / 10, i_board_edge / 10), Color.White);
+                            _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
                         }
-                        else if (t_player[y, x] > 0)
+                        else if (board_player[y, x] > 0)
                         {
-                            _spriteBatch.Draw(_whiteTexture, new Rectangle(t_x + (x * i_board_edge) / 10, t_y + (y * i_board_edge) / 10, i_board_edge / 10, i_board_edge / 10), Color.Green);
+                            _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.Green);
 
                         }
                     }
@@ -565,11 +578,11 @@ namespace MonogameBattleShip
 
                 if (rotation == 0)
                 {
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle((int)(placePos.X) * i_board_edge / 10 + t_x, (int)(placePos.Y) * i_board_edge / 10 + t_y, ship_type * i_board_edge / 10, i_board_edge / 10), Color.Black);
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle((int)(placePos.X) * board_edge_pix / 10 + board_x, (int)(placePos.Y) * board_edge_pix / 10 + board_y, ship_length * board_edge_pix / 10, board_edge_pix / 10), Color.Black);
                 }
                 else
                 {
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle((int)(placePos.X) * i_board_edge / 10 + t_x, (int)(placePos.Y) * i_board_edge / 10 + t_y, i_board_edge / 10, ship_type * i_board_edge / 10), Color.Black);
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle((int)(placePos.X) * board_edge_pix / 10 + board_x, (int)(placePos.Y) * board_edge_pix / 10 + board_y, board_edge_pix / 10, ship_length * board_edge_pix / 10), Color.Black);
                 }
             }
             if (screen == 200)
@@ -578,20 +591,10 @@ namespace MonogameBattleShip
                 {
                     for (int x = 0; x < 10; x++)
                     {
-                        _spriteBatch.Draw(waterImgs[t_player2[y,x]], new Rectangle(t_x + (x * i_board_edge) / 10, t_y + (y * i_board_edge) / 10, i_board_edge / 10, i_board_edge / 10), Color.White);
+                        _spriteBatch.Draw(waterImgs[waterframes_player[y,x]], new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
                     }
                 }
-                for (int y = 0; y <= 10; y++)
-                {
-                    int yPos = t_y + (y * i_board_edge) / 10;
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle(t_x, yPos, i_board_edge, 2), Color.Black);
-                }
-
-                for (int x = 0; x <= 10; x++)
-                {
-                    int xPos = t_x + (x * i_board_edge) / 10;
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos, t_y, 2, i_board_edge), Color.Black);
-                }
+                // Make water darker
                 foreach (var key in stats.Keys)
                 {
                     bool nacrtao = false;
@@ -599,21 +602,21 @@ namespace MonogameBattleShip
                     {
                         for (int x = 0; x < 10; x++)
                         {
-                            if (stats[key][2] == 1 && t_player[y, x]==key)
+                            if (stats[key][2] == 1 && board_player[y, x]==key)
                             {
-                                _spriteBatch.Draw(brodovi["ship"+t_player[y, x].ToString()], new Rectangle(t_x + (x * i_board_edge) / 10, t_y + (y * i_board_edge) / 10, i_board_edge / 10, i_board_edge * (key % 10) / 10), Color.White);
+                                _spriteBatch.Draw(brodovi["ship"+board_player[y, x].ToString()], new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix * (key % 10) / 10), Color.White);
                                 nacrtao = true;
 
                             }
-                            else if (stats[key][2] == 0 && t_player[y, x] == key) // Horizontal (rotated)
+                            else if (stats[key][2] == 0 && board_player[y, x] == key) // Horizontal (rotated)
                             {
                                 int length = key % 10; // Ship length
-                                int tileSize = i_board_edge / 10;
+                                int tileSize = board_edge_pix / 10;
 
-                                Texture2D texture = brodovi["ship" + t_player[y, x].ToString()];
+                                Texture2D texture = brodovi["ship" + board_player[y, x].ToString()];
 
                                 // Position where the ship starts drawing
-                                Vector2 position = new Vector2(t_x + ((x+length) * tileSize), t_y + (y * tileSize));
+                                Vector2 position = new Vector2(board_x + ((x+length) * tileSize), board_y + (y * tileSize));
 
                                 // We'll rotate 90° clockwise around the top-left of the ship
                                 float rotation = MathHelper.PiOver2;
@@ -656,16 +659,27 @@ namespace MonogameBattleShip
                     
                 }
 
-                
+                for (int y = 0; y <= 10; y++)
+                {
+                    int yPos = board_y + (y * board_edge_pix) / 10;
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x, yPos, board_edge_pix, 2), Color.Black);
+                }
+
+                for (int x = 0; x <= 10; x++)
+                {
+                    int xPos = board_x + (x * board_edge_pix) / 10;
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos, board_y, 2, board_edge_pix), Color.Black);
+                }
+
                 for (int i = 0; i < guesses_ai.Count; i++)
                 {
-                    if (t_ai[(int)(guesses_ai[i].X), (int)(guesses_ai[i].Y)] == 0)
+                    if (board_player[(int)(guesses_ai[i].Y), (int)(guesses_ai[i].X)] == 0)
                     {
-                        _spriteBatch.Draw(_whiteTexture, new Rectangle(t_x + (int)(guesses_ai[i].X * i_board_edge / 10), t_y + (int)(guesses_ai[i].Y * i_board_edge / 10), i_board_edge / 10, i_board_edge / 10), Color.Aqua);
+                        _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + (int)(guesses_ai[i].X * board_edge_pix / 10), board_y + (int)(guesses_ai[i].Y * board_edge_pix / 10), board_edge_pix / 10, board_edge_pix / 10), Color.Aqua);
                     }
                     else
                     {
-                        _spriteBatch.Draw(_whiteTexture, new Rectangle(t_x + (int)(guesses_ai[i].X * i_board_edge / 10), t_y + (int)(guesses_ai[i].Y * i_board_edge / 10), i_board_edge / 10, i_board_edge / 10), Color.Red);
+                        _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + (int)(guesses_ai[i].X * board_edge_pix / 10), board_y + (int)(guesses_ai[i].Y * board_edge_pix / 10), board_edge_pix / 10, board_edge_pix / 10), Color.Red);
                     }
 
                 }
@@ -677,29 +691,96 @@ namespace MonogameBattleShip
                 {
                     for (int x = 0; x < 10; x++)
                     {
-                        _spriteBatch.Draw(waterImgs[t_ai2[y, x]], new Rectangle(odvoj+t_x + (x * i_board_edge) / 10, t_y + (y * i_board_edge) / 10, i_board_edge / 10, i_board_edge / 10), Color.White);
+                        // 1. Calculate tile position and size
+                        int tileX = odvoj + board_x + ((0 + x) * board_edge_pix) / 10;
+                        int tileY = board_y + ((0 + y) * board_edge_pix) / 10;
+                        int tileSize = board_edge_pix / 10;
+
+
+                        // 2. Draw water tile
+                        _spriteBatch.Draw(
+                            waterImgs[waterframes_ai[y, x]],
+                            new Rectangle(tileX, tileY, tileSize, tileSize),
+                            Color.White
+                        );
+
+                        if (enemyFog[y, x] == 0) {
+                            for (int leoverlap = 0; leoverlap < 2; leoverlap++)
+                            {
+                                // 3. Draw four fog overlays (from each edge)
+                                // Fog from TOP edge (extends downward)
+                                _spriteBatch.Draw(
+                                    fog,
+                                    new Rectangle(tileX, tileY, tileSize, tileSize),
+                                    null,
+                                    Color.White * 0.5f, // Adjust opacity if needed
+                                    0f, // No rotation
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+
+                                // Fog from RIGHT edge (extends leftward)
+                                _spriteBatch.Draw(
+                                    fog,
+                                    new Rectangle(tileX + tileSize, tileY, tileSize, tileSize),
+                                    null,
+                                    Color.White * 0.5f,
+                                    MathHelper.PiOver2, // Rotate 90° (extends left)
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+
+                                // Fog from BOTTOM edge (extends upward)
+                                _spriteBatch.Draw(
+                                    fog,
+                                    new Rectangle(tileX, tileY + tileSize, tileSize, tileSize),
+                                    null,
+                                    Color.White * 0.5f,
+                                    MathHelper.Pi, // Rotate 180° (extends up)
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+
+                                // Fog from LEFT edge (extends rightward)
+                                _spriteBatch.Draw(
+                                    fog,
+                                    new Rectangle(tileX, tileY, tileSize, tileSize),
+                                    null,
+                                    Color.White * 0.5f,
+                                    MathHelper.Pi * 1.5f, // Rotate 270° (extends right)
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+                            }
+                        }
                     }
                 }
                 for (int y = 0; y <= 10; y++)
                 {
-                    int yPos = t_y + (y * i_board_edge) / 10;
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle(t_x+odvoj, yPos, i_board_edge, 2), Color.Black);
+                    int yPos = board_y + (y * board_edge_pix) / 10;
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x+odvoj, yPos, board_edge_pix, 2), Color.Black);
                 }
+
+
 
                 for (int x = 0; x <= 10; x++)
                 {
-                    int xPos = t_x + (x * i_board_edge) / 10;
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos+odvoj, t_y, 2, i_board_edge), Color.Black);
+                    int xPos = board_x + (x * board_edge_pix) / 10;
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos+odvoj, board_y, 2, board_edge_pix), Color.Black);
                 }
                 for (int i = 0; i < guesses.Count; i++)
                 {
-                    if (t_ai[(int)(guesses[i].X), (int)(guesses[i].Y)] == 0)
+                    if (board_ai[(int)(guesses[i].Y), (int)(guesses[i].X)] == 0)
                     {
-                        _spriteBatch.Draw(_whiteTexture, new Rectangle(odvoj + t_x + (int)(guesses[i].X * i_board_edge / 10), t_y + (int)(guesses[i].Y * i_board_edge / 10), i_board_edge / 10, i_board_edge / 10), Color.Aqua);
+                        //_spriteBatch.Draw(_whiteTexture, new Rectangle(odvoj + board_x + (int)(guesses[i].X * board_edge_pix / 10), board_y + (int)(guesses[i].Y * board_edge_pix / 10), board_edge_pix / 10, board_edge_pix / 10), Color.Aqua);
                     }
                     else
                     {
-                        _spriteBatch.Draw(_whiteTexture, new Rectangle(odvoj + t_x + (int)(guesses[i].X * i_board_edge / 10), t_y + (int)(guesses[i].Y * i_board_edge / 10), i_board_edge / 10, i_board_edge / 10), Color.Red);
+                        _spriteBatch.Draw(_whiteTexture, new Rectangle(odvoj + board_x + (int)(guesses[i].X * board_edge_pix / 10), board_y + (int)(guesses[i].Y * board_edge_pix / 10), board_edge_pix / 10, board_edge_pix / 10), Color.Red);
                     }
 
                 }

@@ -68,7 +68,70 @@ namespace MonogameBattleShip
             return false;
         }
     }
+    public class Slider
+    {
+        private Texture2D pixel;
+        private Rectangle bounds;
+        private int handleSize;
+        public float value;
 
+        private bool isDragging = false;
+
+        public float Value => value;
+
+        public Slider(GraphicsDevice graphicsDevice, Rectangle bounds, int handleSize = 10)
+        {
+            this.bounds = bounds;
+            this.handleSize = handleSize;
+            this.value = 0.5f; // start in the middle
+
+            pixel = new Texture2D(graphicsDevice, 1, 1);
+            pixel.SetData(new[] { Color.White });
+        }
+
+        public void Update(MouseState mouse)
+        {
+
+            
+            var mousePos = new Point(mouse.X, mouse.Y);
+            var handleX = (int)(bounds.X + value * bounds.Width);
+            var handleRect = new Rectangle(handleX - handleSize / 2, bounds.Y, handleSize, bounds.Height);
+
+            if (mouse.LeftButton == ButtonState.Pressed)
+            {
+                if (!bounds.Contains(mousePos))
+                    return;
+                if (!isDragging && handleRect.Contains(mousePos))
+                    isDragging = true;
+
+                if (isDragging)
+                {
+                    float relativeX = MathHelper.Clamp(mouse.X - bounds.X, 0, bounds.Width);
+                    value = relativeX / bounds.Width;
+                }
+            }
+            else
+            {
+                isDragging = false;
+            }
+        }
+
+        public void Draw(SpriteBatch spriteBatch)
+        {
+            int fillWidth = (int)(value * bounds.Width);
+
+            // Left (red)
+            spriteBatch.Draw(pixel, new Rectangle(bounds.X, bounds.Y, fillWidth, bounds.Height), Color.Red);
+
+            // Right (white)
+            spriteBatch.Draw(pixel, new Rectangle(bounds.X + fillWidth, bounds.Y, bounds.Width - fillWidth, bounds.Height), Color.White);
+
+            // Slider handle (small white square)
+            int handleX = (int)(bounds.X + value * bounds.Width) - handleSize / 2;
+            Rectangle handleRect = new Rectangle(handleX, bounds.Y, handleSize, bounds.Height);
+            spriteBatch.Draw(pixel, handleRect, Color.Black);
+        }
+    }
     public class Game1 : Game
     {
         private GraphicsDeviceManager _graphics;
@@ -83,6 +146,8 @@ namespace MonogameBattleShip
         public Button b_NormalAi;
         public Button b_HardAi;
         public Button b_AiMainMenu;
+
+        public Slider diff_slider;
 
         public float difficulty = -1f;
 
@@ -109,6 +174,7 @@ namespace MonogameBattleShip
         public int tile_y;
         public int odvoj;
         public int[,] enemyFog;
+        public int[,] sunken;
 
         // Ship placing
         private int ship_length;
@@ -166,7 +232,7 @@ namespace MonogameBattleShip
             }
         }
 
-        public static int[,] GenerateHeatmap(int[,] grid, int[] shipLengths)
+        public static int[,] GenerateHeatmap(int[,] grid, List<int> shipLengths, int[,] sunken)
         {
             int[,] heatmap = new int[10, 10];
 
@@ -237,9 +303,9 @@ namespace MonogameBattleShip
                         {
                             int nx = x + dx[d];
                             int ny = y + dy[d];
-                            if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && grid[ny, nx] == 0)
+                            if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && grid[ny, nx] == 0 && sunken[y,x]!=1)
                             {
-                                heatmap[ny, nx] += 5; // Bonus value can be tuned
+                                heatmap[ny, nx] += 40; // Bonus value can be tuned
                             }
                         }
                     }
@@ -288,7 +354,7 @@ namespace MonogameBattleShip
 
             gueses_ai = new int[10, 10];
             gueses_player = new int[10, 10];
-
+            sunken = new int[10, 10];
             for (int y = 0; y < 10; y++)
             {
                 for (int x = 0; x < 10; x++)
@@ -317,6 +383,7 @@ namespace MonogameBattleShip
                 }
             }
 
+            diff_slider = new Slider(GraphicsDevice, new Rectangle(650, 300, 300, 30), 5);
             
             base.Initialize();
         }
@@ -547,6 +614,8 @@ namespace MonogameBattleShip
                         screen = 0;
                         wasHolding = true;
                     }
+
+                    diff_slider.Update(currentMouseState);
                 }
                 // Placer
                 if (screen == 100)
@@ -601,6 +670,9 @@ namespace MonogameBattleShip
                 // Attack
                 if (screen == 200)
                 {
+
+                    
+
                     if (tile_x >= 0 && tile_x < 10 && tile_y >= 0 && tile_y < 10 && isMyTurn)
                     {
                         Vector2 guess = new Vector2((currentMouseState.X - board_x-odvoj) / (board_edge_pix / 10), (currentMouseState.Y - board_y) / (board_edge_pix / 10));
@@ -660,9 +732,27 @@ namespace MonogameBattleShip
 
             foreach (int key in shipPartsHit.Keys)
             {
-                if (key % 10 == shipPartsHit[key]) {
+                if (key % 10 != shipPartsHit[key]) {
                     shiLengths.Add(key % 10);
                 }
+                else
+                {
+                    for (int y = 0; y < 10; y++)
+                    {
+                        for (int x = 0; x < 10; x++)
+                        {
+                            if (board_player[y, x] == key)
+                            {
+                                sunken[y, x] = 1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (shiLengths.Count == 0)
+            {
+                Exit();
             }
 
 
@@ -671,9 +761,21 @@ namespace MonogameBattleShip
                 Random nr = new Random();
                 while (true)
                 {
-                    int gxs = nr.Next(0, 10);
-                    int gys = nr.Next(0, 10);
-                    Vector2 guess_ai = new Vector2(gxs,gys);
+
+                    float value = (float)nr.NextDouble();
+                    Vector2 guess_ai;
+                    if (value < diff_slider.value)
+                    {
+                        int[,] hm = GenerateHeatmap(gueses_ai, shiLengths, sunken);
+                        guess_ai = getBest(hm);
+                    }
+                    else
+                    {
+                        guess_ai = new Vector2(nr.Next(0, 10), nr.Next(0, 10));
+                    }
+                    int gys = (int)(guess_ai.Y);
+                    int gxs = (int)(guess_ai.X);
+
                     if (gueses_ai[gys,gxs] == 0)
                     {
                         if (board_player[gys,gxs] == 0)
@@ -716,6 +818,7 @@ namespace MonogameBattleShip
             {
                 b_EasyAi.Draw(_spriteBatch, font, ww, wh);
                 b_AiMainMenu.Draw(_spriteBatch, font, ww, wh);
+                diff_slider.Draw(_spriteBatch);
             }
 
             if (screen == 100)

@@ -784,6 +784,7 @@ namespace MonogameBattleShip
                     {
                         screen = 1;
                         board_player = AIPlace();
+                        playerShips = ExtractShipsFromBoard(board_player);
                         wasHolding = true;
                     }
                     if (b_vsPlayer.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
@@ -818,50 +819,26 @@ namespace MonogameBattleShip
                 // Placer
                 if (screen == 100)
                 {
-                    if (tile_x >= 0 && tile_x < 10 && tile_y >= 0 && tile_y < 10 && wasHolding == false && ship_counts[ship_length] > 0)
+                    if (tile_x >= 0 && tile_x < 10 && tile_y >= 0 && tile_y < 10 && wasHolding == false)
                     {
-                        if (rotation == 0)
+                        for (int i = 0; i < playerShips.Count; i++)
                         {
-                            bool nasliSmoBrod = false;
-                            for (int i = 0; i < ship_length; i++)
+                            // 0 - horizontal, 1 - vertical
+                            Ship currentShip = playerShips[i];
+                            bool clickingCurrent = false;
+                            for (int j = 0; j < currentShip.Length; j++)
                             {
-                                if (board_player[tile_y, tile_x + i] != 0)
+                                if (currentShip.X + (1 - currentShip.Rotation)*j == tile_x && currentShip.Y + (currentShip.Rotation)*j==tile_y)
                                 {
-                                    nasliSmoBrod = true;
-                                    break;
+                                    if (draggedShip == null)
+                                    {
+                                        draggedShip = currentShip;
+                                        clickingCurrent = true;
+                                    }
                                 }
-                            }
-                            if (!nasliSmoBrod)
-                            {
-                                stats[ship_counts[ship_length] * 10 + ship_length] = new List<int> { tile_y, tile_x, rotation }; 
-                                for (int i = 0; i < ship_length; i++)
-                                {
-                                    board_player[tile_y, tile_x + i] = ship_counts[ship_length] * 10 + ship_length;
-                                }
-                                ship_counts[ship_length] -= 1;
                             }
                         }
-                        if (rotation == 1)
-                        {
-                            bool nasliSmoBrod = false;
-                            for (int i = 0; i < ship_length; i++)
-                            {
-                                if (board_player[tile_y + i, tile_x] != 0)
-                                {
-                                    nasliSmoBrod = true;
-                                    break;
-                                }
-                            }
-                            if (!nasliSmoBrod)
-                            {
-                                stats[ship_counts[ship_length] * 10 + ship_length] = new List<int> { tile_y, tile_x, rotation };
-                                for (int i = 0; i < ship_length; i++)
-                                {
-                                    board_player[tile_y + i, tile_x] = ship_counts[ship_length] * 10 + ship_length;
-                                }
-                                ship_counts[ship_length] -= 1;
-                            }
-                        }
+                        
 
                     }
                 }
@@ -917,6 +894,36 @@ namespace MonogameBattleShip
             {
                 wasHoldingHeatmap = false;
                 wasHolding = false;
+                if (draggedShip != null)
+                {
+                    bool canDo = true;
+                    for (int j = 0; j < draggedShip.Length; j++)
+                    {
+                        if (board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (draggedShip.Rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - draggedShip.Rotation) * j] != 0)
+                        {
+                            canDo = false;
+                            break;
+                        }
+
+                    }
+                    if (canDo)
+                    {
+                        for (int j = 0; j < draggedShip.Length; j++)
+                        {
+                            board_player[draggedShip.Y + (draggedShip.Rotation) * j, draggedShip.X + (1 - draggedShip.Rotation) * j] = 0;
+
+                        }
+
+                        for (int j = 0; j < draggedShip.Length; j++)
+                        {
+                            board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (draggedShip.Rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - draggedShip.Rotation) * j] = draggedShip.Id;
+
+                        }
+                        playerShips = ExtractShipsFromBoard(board_player);
+                    }
+
+                }
+                draggedShip = null;
             }
 
             if (!isMyTurn)
@@ -1126,14 +1133,19 @@ namespace MonogameBattleShip
                 }
                 // Placement overlay
 
-                if (rotation == 0)
+                if (draggedShip != null)
                 {
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle((int)(placePos.X) * board_edge_pix / 10 + board_x, (int)(placePos.Y) * board_edge_pix / 10 + board_y, ship_length * board_edge_pix / 10, board_edge_pix / 10), Color.Black);
+                    if (draggedShip.Rotation == 0)
+                    {
+                        _spriteBatch.Draw(_whiteTexture, new Rectangle(currentMouseState.X, currentMouseState.Y, draggedShip.Length * board_edge_pix / 10, board_edge_pix / 10), Color.Black);
+                    }
+                    else
+                    {
+                        _spriteBatch.Draw(_whiteTexture, new Rectangle(currentMouseState.X,currentMouseState.Y, board_edge_pix / 10, draggedShip.Length * board_edge_pix / 10), Color.Black);
+                    }
                 }
-                else
-                {
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle((int)(placePos.X) * board_edge_pix / 10 + board_x, (int)(placePos.Y) * board_edge_pix / 10 + board_y, board_edge_pix / 10, ship_length * board_edge_pix / 10), Color.Black);
-                }
+
+
 
                 for (int y = 0; y <= 10; y++)
                 {

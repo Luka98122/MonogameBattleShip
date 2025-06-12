@@ -159,7 +159,7 @@ namespace MonogameBattleShip
         public Button b_AiMainMenu;
 
         public Slider diff_slider;
-
+        public int[,] hm;
         public float difficulty = -1f;
 
         // Rendering sizes
@@ -187,6 +187,7 @@ namespace MonogameBattleShip
         public int[,] enemyFog;
         public int[,] sunken;
 
+        public bool showHeatmap = false;
 
         List<Texture2D> explosions = new List<Texture2D> { };
         public int explosionCounter = 0;
@@ -213,6 +214,9 @@ namespace MonogameBattleShip
         public List<Vector2> guesses_ai = new List<Vector2> { };
 
         public Texture2D x_img;
+
+        public bool wasHoldingHeatmap = false;
+        public Button heatmapButton;
 
         // Textures
         public int waterFrame = 0;
@@ -327,6 +331,12 @@ namespace MonogameBattleShip
                             {
                                 heatmap[ny, nx] += 40; // Bonus value can be tuned
                             }
+                            nx += dx[d];
+                            ny += dy[d];
+                            if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && grid[ny, nx] == 0 && sunken[y, x] != 1)
+                            {
+                                heatmap[ny, nx] += 25; // Bonus value can be tuned
+                            }
                         }
                     }
                 }
@@ -433,8 +443,8 @@ namespace MonogameBattleShip
 
             board_ai = new int[10, 10];
             board_player = new int[10, 10];
+            heatmapButton = new Button(0.2f, 0.05f, 0.15f, 0.11f, "Toggle Heatmap", _whiteTexture);
 
-            
             b_startGame = new Button(0.8f, 0.9f, 0.15f, 0.08f, "Start Game", _whiteTexture);
 
             gueses_ai = new int[10, 10];
@@ -469,7 +479,7 @@ namespace MonogameBattleShip
             }
 
             diff_slider = new Slider(GraphicsDevice, new Rectangle(650, 300, 300, 30), 5);
-            
+            hm = new int[10, 10];
             base.Initialize();
         }
 
@@ -811,8 +821,14 @@ namespace MonogameBattleShip
                 // Attack
                 if (screen == 200)
                 {
+                    if (wasHoldingHeatmap == false) {
+                        if (heatmapButton.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
+                        {
+                            showHeatmap = !showHeatmap;
+                            wasHoldingHeatmap = true;
+                        }
+                    }
 
-                    
 
                     if (tile_x >= 0 && tile_x < 10 && tile_y >= 0 && tile_y < 10 && isMyTurn)
                     {
@@ -860,6 +876,7 @@ namespace MonogameBattleShip
             }
             else
             {
+                wasHoldingHeatmap = false;
                 wasHolding = false;
             }
 
@@ -948,7 +965,7 @@ namespace MonogameBattleShip
                     Vector2 guess_ai;
                     if (value < diff_slider.value)
                     {
-                        int[,] hm = GenerateHeatmap(gueses_ai, shiLengths, sunken);
+                        hm = GenerateHeatmap(gueses_ai, shiLengths, sunken);
                         guess_ai = getBest(hm);
                     }
                     else
@@ -968,8 +985,10 @@ namespace MonogameBattleShip
                         {
                             gueses_ai[gys, gxs] = 1;
                         }
+                        hm = GenerateHeatmap(gueses_ai, shiLengths, sunken);
                         break;
                     }
+                    
                 }
                 
                 waitForTurn = 0;
@@ -1063,6 +1082,9 @@ namespace MonogameBattleShip
                 foreach (var key in stats.Keys)
                 {
                     bool nacrtao = false;
+
+                    
+
                     for (int y = 0; y < 10; y++)
                     {
                         for (int x = 0; x < 10; x++)
@@ -1435,8 +1457,21 @@ namespace MonogameBattleShip
                     int xPos = board_x + (x * board_edge_pix) / 10;
                     _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos, board_y, 2, board_edge_pix), Color.Black);
                 }
+                heatmapButton.Draw(_spriteBatch, font, ww, wh);
 
-                
+                if (showHeatmap)
+                {
+                    Color transparentRed = new Color(255, 0, 0, 128);
+                    for (int y = 0; y < 10; y++)
+                    {
+                        for (int x = 0; x < 10; x++)
+                        {
+                            Color newCol = new Color(100 + (int)(Math.Pow((hm[y,x]/2),2.2f)), 0, 0, 128);
+                            _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x+x*board_edge_pix/10, board_y+y*board_edge_pix/10, board_edge_pix/10, board_edge_pix/10), newCol);
+                        }
+                    }
+                }
+
             }
 
             if (screen == 400)

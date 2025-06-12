@@ -11,7 +11,17 @@ using Microsoft.Xna.Framework.Input;
 
 namespace MonogameBattleShip
 {
-
+    public class Ship
+    {
+        public int Id;
+        public int Length;
+        public int X;
+        public int Y;
+        public int Rotation;
+        public bool BeingDragged;
+        public int OriginalX;
+        public int OriginalY;
+    }
     public class Button
     {
         public float x;
@@ -176,8 +186,14 @@ namespace MonogameBattleShip
         public int[,] enemyFog;
         public int[,] sunken;
 
+
+
         // Ship placing
         private int ship_length;
+        private List<Ship> playerShips;
+        private Ship draggedShip = null;
+        private int dragOffsetX, dragOffsetY;
+        private Button b_startGame;
 
         private int[] ship_counts = new int[] { 0, 0, 1, 2, 1, 1 };
 
@@ -336,6 +352,98 @@ namespace MonogameBattleShip
             return res;
         }
 
+        private void UpdateBoardFromShips()
+{
+    // Clear board
+    for (int y = 0; y < 10; y++)
+        for (int x = 0; x < 10; x++)
+            board_player[y, x] = 0;
+
+    // Place ships
+    foreach (Ship ship in playerShips)
+    {
+        if (ship.BeingDragged) continue;
+        
+        if (ship.Rotation == 0) // Horizontal
+        {
+            for (int i = 0; i < ship.Length; i++)
+            {
+                int xPos = ship.X + i;
+                if (xPos < 10) board_player[ship.Y, xPos] = ship.Id;
+            }
+        }
+        else // Vertical
+        {
+            for (int i = 0; i < ship.Length; i++)
+            {
+                int yPos = ship.Y + i;
+                if (yPos < 10) board_player[yPos, ship.X] = ship.Id;
+            }
+        }
+    }
+}
+
+        private List<Ship> ExtractShipsFromBoard(int[,] board)
+        {
+            List<Ship> ships = new List<Ship>();
+            bool[,] visited = new bool[10, 10];
+
+            for (int y = 0; y < 10; y++)
+            {
+                for (int x = 0; x < 10; x++)
+                {
+                    if (board[y, x] != 0 && !visited[y, x])
+                    {
+                        int id = board[y, x];
+
+                        // Horizontal ship
+                        if (x < 9 && board[y, x + 1] == id)
+                        {
+                            int length = 1;
+                            visited[y, x] = true;
+                            int cx = x + 1;
+                            while (cx < 10 && board[y, cx] == id)
+                            {
+                                visited[y, cx] = true;
+                                length++;
+                                cx++;
+                            }
+
+                            Ship ship = new Ship();
+                            ship.Id = id;
+                            ship.Length = length;
+                            ship.X = x;
+                            ship.Y = y;
+                            ship.Rotation = 0;
+                            ships.Add(ship);
+                        }
+                        // Vertical ship
+                        else
+                        {
+                            int length = 1;
+                            visited[y, x] = true;
+                            int cy = y + 1;
+                            while (cy < 10 && board[cy, x] == id)
+                            {
+                                visited[cy, x] = true;
+                                length++;
+                                cy++;
+                            }
+
+                            Ship ship = new Ship();
+                            ship.Id = id;
+                            ship.Length = length;
+                            ship.X = x;
+                            ship.Y = y;
+                            ship.Rotation = 1;
+                            ships.Add(ship);
+                        }
+                    }
+                }
+            }
+            return ships;
+        }
+
         protected override void Initialize()
         {
 
@@ -351,6 +459,8 @@ namespace MonogameBattleShip
             board_ai = new int[10, 10];
             board_player = new int[10, 10];
 
+            
+            b_startGame = new Button(0.8f, 0.9f, 0.15f, 0.08f, "Start Game", _whiteTexture);
 
             gueses_ai = new int[10, 10];
             gueses_player = new int[10, 10];
@@ -827,9 +937,16 @@ namespace MonogameBattleShip
                 {
                     for (int x = 0; x < 10; x++)
                     {
+                        _spriteBatch.Draw(waterImgs[waterframes_player[y, x]], new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
+                    }
+                }
+                for (int y = 0; y < 10; y++)
+                {
+                    for (int x = 0; x < 10; x++)
+                    {
                         if (board_player[y, x] == 0)
                         {
-                            _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
+                            //_spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
                         }
                         else if (board_player[y, x] > 0)
                         {
@@ -847,6 +964,18 @@ namespace MonogameBattleShip
                 else
                 {
                     _spriteBatch.Draw(_whiteTexture, new Rectangle((int)(placePos.X) * board_edge_pix / 10 + board_x, (int)(placePos.Y) * board_edge_pix / 10 + board_y, board_edge_pix / 10, ship_length * board_edge_pix / 10), Color.Black);
+                }
+
+                for (int y = 0; y <= 10; y++)
+                {
+                    int yPos = board_y + (y * board_edge_pix) / 10;
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x, yPos, board_edge_pix, 2), Color.Black);
+                }
+
+                for (int x = 0; x <= 10; x++)
+                {
+                    int xPos = board_x + (x * board_edge_pix) / 10;
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos, board_y, 2, board_edge_pix), Color.Black);
                 }
             }
             if (screen == 200)
@@ -923,17 +1052,7 @@ namespace MonogameBattleShip
                     
                 }
 
-                for (int y = 0; y <= 10; y++)
-                {
-                    int yPos = board_y + (y * board_edge_pix) / 10;
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x, yPos, board_edge_pix, 2), Color.Black);
-                }
 
-                for (int x = 0; x <= 10; x++)
-                {
-                    int xPos = board_x + (x * board_edge_pix) / 10;
-                    _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos, board_y, 2, board_edge_pix), Color.Black);
-                }
 
                 
 
@@ -1059,6 +1178,18 @@ namespace MonogameBattleShip
                         }
 
                     }
+                }
+
+                for (int y = 0; y <= 10; y++)
+                {
+                    int yPos = board_y + (y * board_edge_pix) / 10;
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x, yPos, board_edge_pix, 2), Color.Black);
+                }
+
+                for (int x = 0; x <= 10; x++)
+                {
+                    int xPos = board_x + (x * board_edge_pix) / 10;
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos, board_y, 2, board_edge_pix), Color.Black);
                 }
             }
 

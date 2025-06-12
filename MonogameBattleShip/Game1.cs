@@ -131,7 +131,7 @@ namespace MonogameBattleShip
             int fillWidth = (int)(value * bounds.Width);
 
             // Left (red)
-            spriteBatch.Draw(pixel, new Rectangle(bounds.X, bounds.Y, fillWidth, bounds.Height), Color.Red);
+            spriteBatch.Draw(pixel, new Rectangle(bounds.X, bounds.Y, fillWidth, bounds.Height), Color.Aqua);
 
             // Right (white)
             spriteBatch.Draw(pixel, new Rectangle(bounds.X + fillWidth, bounds.Y, bounds.Width - fillWidth, bounds.Height), Color.White);
@@ -164,6 +164,9 @@ namespace MonogameBattleShip
 
         // Rendering sizes
         public Texture2D _whiteTexture;
+        public Texture2D tex_VictoryScreen;
+        public Texture2D tex_DefeatScreen;
+        public Texture2D tex_menu;
         public int screen = 0;
         public int ww = 1700;
         public int wh = 956;
@@ -189,6 +192,8 @@ namespace MonogameBattleShip
 
         public bool showHeatmap = false;
 
+        public int endFade = 0;
+
         List<Texture2D> explosions = new List<Texture2D> { };
         public int explosionCounter = 0;
         // Ship placing
@@ -197,7 +202,7 @@ namespace MonogameBattleShip
         private Ship draggedShip = null;
         private int dragOffsetX, dragOffsetY;
         private Button b_startGame;
-
+        public bool wasHoldingEsc = true;
         private int[] ship_counts = new int[] { 0, 0, 1, 2, 1, 1 };
 
         // Input stuff
@@ -431,20 +436,30 @@ namespace MonogameBattleShip
 
         protected override void Initialize()
         {
+            //gti
+            tex_menu = Content.Load<Texture2D>("main1");
             x_img = Content.Load<Texture2D>("x");
             _whiteTexture = new Texture2D(GraphicsDevice, 1, 1);
             _whiteTexture.SetData(new[] { Color.White });
-            b_vsAi = new Button(0.4f, 0.1f, 0.2f, 0.1f, "vs AI", _whiteTexture);
-            b_vsPlayer = new Button(0.4f, 0.3f, 0.2f, 0.1f, "vs Player", _whiteTexture);
-            b_exit = new Button(0.4f, 0.5f, 0.2f, 0.15f, "Exit", _whiteTexture);
 
-            b_EasyAi = new Button(0.4f, 0.1f, 0.2f, 0.1f, "Ez", _whiteTexture);
+            tex_DefeatScreen = Content.Load<Texture2D>("DefeatScreen");
+            tex_VictoryScreen = Content.Load<Texture2D>("VictoryScreen");
+            wasHoldingEsc = true;
+
+            b_vsAi = new Button(0.1f, 0.1f, 0.15f, 0.08f, "vs AI", _whiteTexture);
+            b_vsPlayer = new Button(0.1f, 0.23f, 0.15f, 0.08f, "vs Player", _whiteTexture);
+            b_exit = new Button(0.1f, 0.46f, 0.15f, 0.08f, "Exit", _whiteTexture);
+
+            b_EasyAi = new Button(0.1f, 0.45f, 0.15f, 0.08f, "Start", _whiteTexture);
             b_AiMainMenu = new Button(0.35f, 0.7f, 0.3f, 0.1f, "Main Menu", _whiteTexture);
 
             board_ai = new int[10, 10];
-            board_player = new int[10, 10];
+            board_player = AIPlace();// new int[10, 10];
+            ship_counts = new int[] { 0, 0, 1, 2, 1, 1 };
             heatmapButton = new Button(0.2f, 0.05f, 0.15f, 0.11f, "Toggle Heatmap", _whiteTexture);
-
+            endFade = 0;
+            isMyTurn = true;
+            waitForTurn = 0;
             b_startGame = new Button(0.8f, 0.9f, 0.15f, 0.08f, "Start Game", _whiteTexture);
 
             gueses_ai = new int[10, 10];
@@ -478,8 +493,9 @@ namespace MonogameBattleShip
                 }
             }
 
-            diff_slider = new Slider(GraphicsDevice, new Rectangle(650, 300, 300, 30), 5);
+            diff_slider = new Slider(GraphicsDevice, new Rectangle((int)(ww*0.1f)-20, (int)(0.35f*wh), 300, 30), 10);
             hm = new int[10, 10];
+            showHeatmap = false;
             base.Initialize();
         }
 
@@ -624,6 +640,37 @@ namespace MonogameBattleShip
 
         protected override void Update(GameTime gameTime)
         {
+            keyboard = Keyboard.GetState();
+            currentMouseState = Mouse.GetState();
+            if (screen == 400)
+            {
+                if (endFade > 128)
+                {
+                    if (keyboard.IsKeyDown(Keys.Escape))
+                    {
+                        screen = 0;
+                        Initialize();
+
+                    }
+                }
+                endFade += 1;
+                return;
+            }
+
+            if (screen == 500)
+            {
+                if (endFade > 128)
+                {
+                    if (keyboard.IsKeyDown(Keys.Escape))
+                    {
+                        screen = 0;
+                        Initialize();
+
+                    }
+                }
+                endFade += 1;
+                return;
+            }
             Dictionary<int, int> shipPartsHit = new Dictionary<int, int>
             {
                 { 13, 0 },
@@ -654,8 +701,7 @@ namespace MonogameBattleShip
                 animdirection = 1;
                 explosionCounter = 32;
             }
-            keyboard = Keyboard.GetState();
-            currentMouseState = Mouse.GetState();
+
             tile_x = (currentMouseState.X - board_x) / (board_edge_pix / 10);
             tile_y = (currentMouseState.Y - board_y) / (board_edge_pix / 10);
             animationSlow -= 1;
@@ -737,6 +783,7 @@ namespace MonogameBattleShip
                     if (b_vsAi.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
                     {
                         screen = 1;
+                        board_player = AIPlace();
                         wasHolding = true;
                     }
                     if (b_vsPlayer.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
@@ -864,15 +911,7 @@ namespace MonogameBattleShip
                         }
                     }
                 }
-                if (screen == 400)
-                {
-                    
-                }
-
-                if (screen == 500)
-                {
-
-                }
+               
             }
             else
             {
@@ -996,7 +1035,14 @@ namespace MonogameBattleShip
             }
 
             if (keyboard.IsKeyDown(Keys.Escape))
-                Exit();
+            {
+                if (wasHoldingEsc == false) { Exit(); }
+            }
+            else
+            {
+                wasHoldingEsc = false;
+            }
+
 
             base.Update(gameTime);
 
@@ -1005,21 +1051,53 @@ namespace MonogameBattleShip
 
         protected override void Draw(GameTime gameTime)
         {
+            //gtd
             GraphicsDevice.Clear(Color.Gray); // Red background
             odvoj = (int)(board_edge_pix * 1.2f);
             _spriteBatch.Begin();
 
+            if (screen == 400 && endFade>128)
+            {
+                if (endFade>128)
+                {
+
+                    _spriteBatch.Draw(tex_DefeatScreen, new Rectangle(0, 0, ww, wh), Color.White);
+                }
+                _spriteBatch.End();
+                base.Draw(gameTime);
+                return;
+            }
+
+            if (screen == 500 && endFade>128)
+            {
+
+                if (endFade > 128)
+                {
+
+                    _spriteBatch.Draw(tex_VictoryScreen, new Rectangle(0, 0, ww, wh), Color.White);
+                }
+                _spriteBatch.End();
+                base.Draw(gameTime);
+                return;
+            }
+
             if (screen == 0)
             {
+                _spriteBatch.Draw(tex_menu, new Rectangle(0, 0, ww, wh), Color.White);
                 b_vsAi.Draw(_spriteBatch, font, ww, wh);
                 b_vsPlayer.Draw(_spriteBatch, font, ww, wh);
                 b_exit.Draw(_spriteBatch, font, ww, wh);
+                _spriteBatch.DrawString(font, "Luka Markovic &", new Vector2(ww - 200, wh - 80), Color.Black);
+                _spriteBatch.DrawString(font, "Stribor Pavlovic", new Vector2(ww - 200, wh - 50), Color.Black);
+
             }
             if (screen == 1)
             {
+                _spriteBatch.Draw(tex_menu, new Rectangle(0, 0, ww, wh), Color.White);
                 b_EasyAi.Draw(_spriteBatch, font, ww, wh);
                 b_AiMainMenu.Draw(_spriteBatch, font, ww, wh);
                 diff_slider.Draw(_spriteBatch);
+                _spriteBatch.DrawString(font, "Difficulty:", new Vector2((int)(ww * 0.1f) - 20, (int)(0.25f * wh)),Color.Black);
             }
 
             if (screen == 100)
@@ -1069,7 +1147,7 @@ namespace MonogameBattleShip
                     _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos, board_y, 2, board_edge_pix), Color.Black);
                 }
             }
-            if (screen == 200)
+            if (screen == 200 || (screen==400 && endFade<64) || (screen==500 && endFade<64))
             {
                 for (int y = 0; y < 10; y++)
                 {
@@ -1146,7 +1224,6 @@ namespace MonogameBattleShip
                     
                 }
 
-            
 
                 
 
@@ -1474,16 +1551,39 @@ namespace MonogameBattleShip
 
             }
 
-            if (screen == 400)
+
+            //_spriteBatch.Draw(_whiteTexture, new Rectangle(100, 100, 200, 100), Color.White);
+
+            if (screen == 400 )
             {
-                _spriteBatch.DrawString(font2, "Izgubio si", new Vector2(400, 400), Color.White);
+                if (endFade > 0 && endFade < 64)
+                {
+                    Color newCol = new Color(0, 0, 0, endFade * 4);
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(0, 0, ww, wh), newCol);
+                }
+                else if (endFade > 64 && endFade < 128)
+                {
+                    Color newCol = new Color(0, 0, 0, 255-(endFade-64) * 4);
+                    _spriteBatch.Draw(tex_DefeatScreen, new Rectangle(0, 0, ww, wh), Color.White);
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(0, 0, ww, wh), newCol);
+                }
             }
 
             if (screen == 500)
             {
-                _spriteBatch.DrawString(font2, "Pobedio si. ( Probaj tezi AI )", new Vector2(400, 400), Color.White);
+                if (endFade > 0 && endFade < 64)
+                {
+                    Color newCol = new Color(0, 0, 0, endFade * 4);
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(0, 0, ww, wh), newCol);
+                }
+                else if (endFade > 64 && endFade < 128)
+                {
+                    Color newCol = new Color(0, 0, 0, 255 - (endFade - 64) * 4);
+                    _spriteBatch.Draw(tex_VictoryScreen, new Rectangle(0, 0, ww, wh), Color.White);
+                    _spriteBatch.Draw(_whiteTexture, new Rectangle(0, 0, ww, wh), newCol);
+                }
             }
-            //_spriteBatch.Draw(_whiteTexture, new Rectangle(100, 100, 200, 100), Color.White);
+
 
             _spriteBatch.End();
 

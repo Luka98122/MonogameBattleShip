@@ -212,6 +212,8 @@ namespace MonogameBattleShip
         public List<Vector2> guesses = new List<Vector2> { };
         public List<Vector2> guesses_ai = new List<Vector2> { };
 
+        public Texture2D x_img;
+
         // Textures
         public int waterFrame = 0;
         public int animationSlow = 50;
@@ -419,7 +421,7 @@ namespace MonogameBattleShip
 
         protected override void Initialize()
         {
-
+            x_img = Content.Load<Texture2D>("x");
             _whiteTexture = new Texture2D(GraphicsDevice, 1, 1);
             _whiteTexture.SetData(new[] { Color.White });
             b_vsAi = new Button(0.4f, 0.1f, 0.2f, 0.1f, "vs AI", _whiteTexture);
@@ -621,7 +623,15 @@ namespace MonogameBattleShip
                 { 15, 0 }
             };
 
-           
+            Dictionary<int, int> shipPartsHit2 = new Dictionary<int, int>
+            {
+                { 13, 0 },
+                { 12, 0 },
+                { 23, 0 },
+                { 14, 0 },
+                { 15, 0 }
+            };
+
             explosionCounter += animdirection;
             explosionCounter %= 13*7;
             if (explosionCounter >= 89) 
@@ -726,8 +736,8 @@ namespace MonogameBattleShip
                     }
                     if (b_exit.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
                     {
-                        screen = 400;
-                        //Exit();
+                        //screen = 400;
+                        Exit();
                     }
                 }
                 // V.S. AI Sub-Menu
@@ -888,6 +898,37 @@ namespace MonogameBattleShip
                         }
                     }
                 }
+            }
+
+            for (int y = 0; y < 10; y++)
+            {
+                for (int x = 0; x < 10; x++)
+                {
+                    if (board_ai[y, x] != 0 && gueses_player[y, x] == 1)
+                    {
+                        shipPartsHit2[board_ai[y, x]] += 1;
+                    }
+                }
+            }
+
+            List<int> shiLengths2 = new List<int> { };
+
+            foreach (int key in shipPartsHit2.Keys)
+            {
+                if (key % 10 != shipPartsHit2[key])
+                {
+                    shiLengths2.Add(key % 10);
+                }
+                else
+                {
+
+                }
+            }
+
+            if (shiLengths2.Count == 0)
+            {
+                screen = 500;
+                //Exit();
             }
 
             if (shiLengths.Count == 0)
@@ -1170,24 +1211,24 @@ namespace MonogameBattleShip
                     {
                         if (gueses_ai[y, x] == 2)
                         {
-                            _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + x * board_edge_pix / 10, board_y + y * board_edge_pix / 10, board_edge_pix / 10, board_edge_pix / 10), Color.Aqua);
+                            _spriteBatch.Draw(x_img, new Rectangle(board_x + x * board_edge_pix / 10, board_y + y * board_edge_pix / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
                         }
                         else if (gueses_ai[y, x] == 1)
                         {
 
 
-
+                            int sizeDif = 30;
                             Texture2D explosionTex = explosions[explosionCounter / 7];
 
-                            if (x != 9 && board_player[y, x + 1] == board_player[y, x])
+                            /*if (x != 9 && board_player[y, x + 1] == board_player[y, x])
                             {
                                 // Ship to the right → horizontal squash
                                 _spriteBatch.Draw(
                                     explosionTex,
                                     new Rectangle(board_x - 2 + x * board_edge_pix / 10,
-                                                  board_y + 10 + y * board_edge_pix / 10,
+                                                  board_y + sizeDif/2 + y * board_edge_pix / 10,
                                                   board_edge_pix / 10,
-                                                  board_edge_pix / 10 - 20),
+                                                  board_edge_pix / 10 - sizeDif),
                                     null,
                                     Color.White,
                                     0f,
@@ -1204,9 +1245,9 @@ namespace MonogameBattleShip
                                 _spriteBatch.Draw(
                                     explosionTex,
                                     new Rectangle(board_x - 2 + x * board_edge_pix / 10,
-                                                  board_y + 10 + y * board_edge_pix / 10,
+                                                  board_y + sizeDif/2 + y * board_edge_pix / 10,
                                                   board_edge_pix / 10,
-                                                  board_edge_pix / 10 - 20),
+                                                  board_edge_pix / 10 - sizeDif),
                                     null,
                                     Color.White,
                                     0f,
@@ -1220,10 +1261,10 @@ namespace MonogameBattleShip
                                 // Ship above → vertical squash, rotated 90°
                                 _spriteBatch.Draw(
                                     explosionTex,
-                                    new Rectangle(board_x-10 + (1+x) * board_edge_pix / 10,
+                                    new Rectangle(board_x-sizeDif/2 + (1+x) * board_edge_pix / 10,
                                                   board_y + y * board_edge_pix / 10,
                                                   board_edge_pix / 10,
-                                                  board_edge_pix / 10-20),
+                                                  board_edge_pix / 10-sizeDif),
                                     null,
                                     Color.White,
                                     MathHelper.PiOver2, // 90 degrees
@@ -1237,10 +1278,10 @@ namespace MonogameBattleShip
                                 // Ship below → vertical squash, rotated 90°
                                 _spriteBatch.Draw(
                                     explosionTex,
-                                    new Rectangle(board_x -10 + (1+x) * board_edge_pix / 10,
+                                    new Rectangle(board_x -sizeDif/2 + (1+x) * board_edge_pix / 10,
                                                   board_y + y * board_edge_pix / 10,
                                                   board_edge_pix / 10,
-                                                  board_edge_pix / 10-20),
+                                                  board_edge_pix / 10-sizeDif),
                                     null,
                                     Color.White,
                                     MathHelper.PiOver2, // 90 degrees
@@ -1249,8 +1290,10 @@ namespace MonogameBattleShip
                                     0f
                                 );
                             }
+                            
                             else
                             {
+                            */
                                 // Full explosion
                                 _spriteBatch.Draw(
                                     explosionTex,
@@ -1260,7 +1303,7 @@ namespace MonogameBattleShip
                                                   board_edge_pix / 10),
                                     Color.White
                                 );
-                            }
+                            
                         }
 
                     }
@@ -1292,7 +1335,7 @@ namespace MonogameBattleShip
 
 
                             Texture2D explosionTex = explosions[explosionCounter / 7];
-
+                            /*
                             if (x != 9 && board_ai[y, x + 1] == board_ai[y, x])
                             {
                                 // Ship to the right → horizontal squash
@@ -1365,6 +1408,7 @@ namespace MonogameBattleShip
                             }
                             else
                             {
+                            */
                                 // Full explosion
                                 _spriteBatch.Draw(
                                     explosionTex,
@@ -1374,7 +1418,7 @@ namespace MonogameBattleShip
                                                   board_edge_pix / 10),
                                     Color.White
                                 );
-                            }
+                            
                         }
 
                     }

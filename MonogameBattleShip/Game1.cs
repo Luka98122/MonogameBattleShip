@@ -223,6 +223,8 @@ namespace MonogameBattleShip
         public bool wasHoldingHeatmap = false;
         public Button heatmapButton;
 
+        public int previousScrollWheel = 0;
+
         // Textures
         public int waterFrame = 0;
         public int animationSlow = 50;
@@ -840,6 +842,7 @@ namespace MonogameBattleShip
                                     if (draggedShip == null)
                                     {
                                         draggedShip = currentShip;
+                                        rotation = draggedShip.Rotation;
                                         clickingCurrent = true;
                                     }
                                 }
@@ -847,6 +850,15 @@ namespace MonogameBattleShip
                         }
                         
 
+                    }
+
+                    if (draggedShip != null)
+                    {
+                        if (currentMouseState.ScrollWheelValue != previousScrollWheel)
+                        {
+                            rotation = 1 - rotation;
+                            
+                        }
                     }
                 }
                 // Attack
@@ -904,29 +916,36 @@ namespace MonogameBattleShip
                 if (draggedShip != null)
                 {
                     bool canDo = true;
-                    for (int j = 0; j < draggedShip.Length; j++)
-                    {
-                        if (board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (draggedShip.Rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - draggedShip.Rotation) * j] != 0 && board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (draggedShip.Rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - draggedShip.Rotation) * j]!=draggedShip.Id)
-                        {
-                            canDo = false;
-                            break;
-                        }
-
-                    }
-                    if (canDo)
+                    try
                     {
                         for (int j = 0; j < draggedShip.Length; j++)
                         {
-                            board_player[draggedShip.Y + (draggedShip.Rotation) * j, draggedShip.X + (1 - draggedShip.Rotation) * j] = 0;
+                            if (board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - rotation) * j] != 0 && board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - rotation) * j] != draggedShip.Id)
+                            {
+                                canDo = false;
+                                break;
+                            }
 
                         }
 
-                        for (int j = 0; j < draggedShip.Length; j++)
+                        if (canDo)
                         {
-                            board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (draggedShip.Rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - draggedShip.Rotation) * j] = draggedShip.Id;
+                            for (int j = 0; j < draggedShip.Length; j++)
+                            {
+                                board_player[draggedShip.Y + (draggedShip.Rotation) * j, draggedShip.X + (1 - draggedShip.Rotation) * j] = 0;
 
+                            }
+                            draggedShip.Rotation = rotation;
+                            for (int j = 0; j < draggedShip.Length; j++)
+                            {
+                                board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (draggedShip.Rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - draggedShip.Rotation) * j] = draggedShip.Id;
+
+                            }
+                            playerShips = ExtractShipsFromBoard(board_player);
                         }
-                        playerShips = ExtractShipsFromBoard(board_player);
+                    } catch
+                    {
+
                     }
 
                 }
@@ -1057,7 +1076,7 @@ namespace MonogameBattleShip
                 wasHoldingEsc = false;
             }
 
-
+            previousScrollWheel = currentMouseState.ScrollWheelValue;
             base.Update(gameTime);
 
 
@@ -1123,33 +1142,63 @@ namespace MonogameBattleShip
                         _spriteBatch.Draw(waterImgs[waterframes_player[y, x]], new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
                     }
                 }
-                for (int y = 0; y < 10; y++)
+                foreach (Ship cur in playerShips)
                 {
-                    for (int x = 0; x < 10; x++)
-                    {
-                        if (board_player[y, x] == 0)
-                        {
-                            //_spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
-                        }
-                        else if (board_player[y, x] > 0)
-                        {
-                            _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.Green);
+                    float rotation = cur.Rotation == 0 ? MathF.PI / 2 : 0f;
+                    Vector2 origin = new Vector2(0, 0);
 
-                        }
-                    }
+                    origin = new Vector2(0, 0);
+
+
+                    int width = board_edge_pix / 10;
+                    int height = (board_edge_pix / 10) * cur.Length;
+
+                    int xOffset = 0;
+
+                    if (cur.Rotation == 0)
+                        xOffset += (int)(cur.Length * board_edge_pix / 10);
+
+                    _spriteBatch.Draw(
+                        brodovi["ship" + cur.Id.ToString()],
+                        new Rectangle(xOffset + board_x + (cur.X * board_edge_pix) / 10, board_y + (cur.Y * board_edge_pix) / 10, width, height),
+                        null,
+                        Color.White,
+                        rotation,
+                        origin,
+                        SpriteEffects.None,
+                        0f
+                    );
+
+
                 }
                 // Placement overlay
 
                 if (draggedShip != null)
                 {
-                    if (draggedShip.Rotation == 0)
-                    {
-                        _spriteBatch.Draw(_whiteTexture, new Rectangle(currentMouseState.X, currentMouseState.Y, draggedShip.Length * board_edge_pix / 10, board_edge_pix / 10), Color.Black);
-                    }
-                    else
-                    {
-                        _spriteBatch.Draw(_whiteTexture, new Rectangle(currentMouseState.X,currentMouseState.Y, board_edge_pix / 10, draggedShip.Length * board_edge_pix / 10), Color.Black);
-                    }
+                    float rotation2 = rotation == 0 ? MathF.PI / 2 : 0f;
+                    Vector2 origin = new Vector2(0, 0);
+
+                    origin = new Vector2(0, 0);
+
+
+                    int width = board_edge_pix / 10;
+                    int height = (board_edge_pix / 10) * draggedShip.Length;
+
+                    int xOffset = 0;
+
+                    if (rotation == 0)
+                        xOffset += (int)(draggedShip.Length * board_edge_pix / 10);
+
+                    _spriteBatch.Draw(
+                        brodovi["ship" + draggedShip.Id.ToString()],
+                        new Rectangle((int)(currentMouseState.X)+ xOffset, (int)(currentMouseState.Y), width, height),
+                        null,
+                        Color.White,
+                        rotation2,
+                        origin,
+                        SpriteEffects.None,
+                        0f
+                    );
                 }
 
 

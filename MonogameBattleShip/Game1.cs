@@ -1174,7 +1174,93 @@ namespace MonogameBattleShip
                         }
                         else if (gueses_ai[y, x] == 1)
                         {
-                            _spriteBatch.Draw(explosions[explosionCounter/7], new Rectangle(board_x + x * board_edge_pix / 10, board_y + y * board_edge_pix / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
+
+
+
+                            Texture2D explosionTex = explosions[explosionCounter / 7];
+
+                            if (x != 9 && board_player[y, x + 1] == board_player[y, x])
+                            {
+                                // Ship to the right → horizontal squash
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(board_x - 2 + x * board_edge_pix / 10,
+                                                  board_y + 10 + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10,
+                                                  board_edge_pix / 10 - 20),
+                                    null,
+                                    Color.White,
+                                    0f,
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+                                continue;
+                            }
+
+                            if (x != 0 && board_player[y, x - 1] == board_player[y, x])
+                            {
+                                // Ship to the left → horizontal squash
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(board_x - 2 + x * board_edge_pix / 10,
+                                                  board_y + 10 + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10,
+                                                  board_edge_pix / 10 - 20),
+                                    null,
+                                    Color.White,
+                                    0f,
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+                            }
+                            else if (y != 0 && board_player[y - 1, x] == board_player[y, x])
+                            {
+                                // Ship above → vertical squash, rotated 90°
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(board_x-10 + (1+x) * board_edge_pix / 10,
+                                                  board_y + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10,
+                                                  board_edge_pix / 10-20),
+                                    null,
+                                    Color.White,
+                                    MathHelper.PiOver2, // 90 degrees
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+                            }
+                            else if (y != 9 && board_player[y + 1, x] == board_player[y, x])
+                            {
+                                // Ship below → vertical squash, rotated 90°
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(board_x -10 + (1+x) * board_edge_pix / 10,
+                                                  board_y + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10,
+                                                  board_edge_pix / 10-20),
+                                    null,
+                                    Color.White,
+                                    MathHelper.PiOver2, // 90 degrees
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+                            }
+                            else
+                            {
+                                // Full explosion
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(board_x + x * board_edge_pix / 10,
+                                                  board_y + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10,
+                                                  board_edge_pix / 10),
+                                    Color.White
+                                );
+                            }
                         }
 
                     }
@@ -1199,13 +1285,96 @@ namespace MonogameBattleShip
                 {
                     for (int x = 0; x < 10; x++)
                     {
-                        if (gueses_player[y, x] == 2)
+                        
+                        if (gueses_player[y, x] == 1)
                         {
-                            //_spriteBatch.Draw(_whiteTexture, new Rectangle(odvoj+board_x + x * board_edge_pix / 10, board_y + y * board_edge_pix / 10, board_edge_pix / 10, board_edge_pix / 10), Color.Aqua);
-                        }
-                        else if (gueses_player[y, x] == 1)
-                        {
-                            _spriteBatch.Draw(explosions[explosionCounter/7], new Rectangle(odvoj+board_x + x * board_edge_pix / 10, board_y + y * board_edge_pix / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
+
+
+
+                            Texture2D explosionTex = explosions[explosionCounter / 7];
+
+                            if (x != 9 && board_ai[y, x + 1] == board_ai[y, x])
+                            {
+                                // Ship to the right → horizontal squash
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(odvoj+board_x - 3 + x * board_edge_pix / 10,
+                                                  board_y + 10 + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10+6,
+                                                  board_edge_pix / 10 - 20),
+                                    null,
+                                    Color.White,
+                                    0f,
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+                                continue;
+                            }
+
+                            if (x != 0 && board_ai[y, x - 1] == board_ai[y, x])
+                            {
+                                // Ship to the left → horizontal squash
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(odvoj + board_x - 2 + x * board_edge_pix / 10,
+                                                  board_y + 10 + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10 + 6,
+                                                  board_edge_pix / 10 - 20),
+                                    null,
+                                    Color.White,
+                                    0f,
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+                            }
+                            else if (y != 0 && board_ai[y - 1, x] == board_ai[y, x])
+                            {
+                                // Ship above → vertical squash, rotated 90°
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(odvoj + board_x - 10 + (1 + x) * board_edge_pix / 10,
+                                                  board_y + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10 + 6,
+                                                  board_edge_pix / 10 - 20),
+                                    null,
+                                    Color.White,
+                                    MathHelper.PiOver2, // 90 degrees
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+                            }
+                            else if (y != 9 && board_ai[y + 1, x] == board_ai[y, x])
+                            {
+                                // Ship below → vertical squash, rotated 90°
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(odvoj + board_x - 10 + (1 + x) * board_edge_pix / 10,
+                                                  board_y + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10 + 6,
+                                                  board_edge_pix / 10 - 20),
+                                    null,
+                                    Color.White,
+                                    MathHelper.PiOver2, // 90 degrees
+                                    Vector2.Zero,
+                                    SpriteEffects.None,
+                                    0f
+                                );
+                            }
+                            else
+                            {
+                                // Full explosion
+                                _spriteBatch.Draw(
+                                    explosionTex,
+                                    new Rectangle(odvoj + board_x + x * board_edge_pix / 10,
+                                                  board_y + y * board_edge_pix / 10,
+                                                  board_edge_pix / 10 + 6,
+                                                  board_edge_pix / 10),
+                                    Color.White
+                                );
+                            }
                         }
 
                     }

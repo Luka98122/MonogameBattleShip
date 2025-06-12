@@ -147,6 +147,7 @@ namespace MonogameBattleShip
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
         private SpriteFont font;
+        private SpriteFont font2;
 
 
         public Button b_vsAi;
@@ -187,7 +188,8 @@ namespace MonogameBattleShip
         public int[,] sunken;
 
 
-
+        List<Texture2D> explosions = new List<Texture2D> { };
+        public int explosionCounter = 0;
         // Ship placing
         private int ship_length;
         private List<Ship> playerShips;
@@ -228,7 +230,7 @@ namespace MonogameBattleShip
             Window.AllowUserResizing = false;
 
         }
-
+        int animdirection = 1;
         public static void dump(int[,] matrix, string path)
         {
             using (StreamWriter writer = new StreamWriter(path))
@@ -352,36 +354,7 @@ namespace MonogameBattleShip
             return res;
         }
 
-        private void UpdateBoardFromShips()
-{
-    // Clear board
-    for (int y = 0; y < 10; y++)
-        for (int x = 0; x < 10; x++)
-            board_player[y, x] = 0;
-
-    // Place ships
-    foreach (Ship ship in playerShips)
-    {
-        if (ship.BeingDragged) continue;
         
-        if (ship.Rotation == 0) // Horizontal
-        {
-            for (int i = 0; i < ship.Length; i++)
-            {
-                int xPos = ship.X + i;
-                if (xPos < 10) board_player[ship.Y, xPos] = ship.Id;
-            }
-        }
-        else // Vertical
-        {
-            for (int i = 0; i < ship.Length; i++)
-            {
-                int yPos = ship.Y + i;
-                if (yPos < 10) board_player[yPos, ship.X] = ship.Id;
-            }
-        }
-    }
-}
 
         private List<Ship> ExtractShipsFromBoard(int[,] board)
         {
@@ -502,11 +475,46 @@ namespace MonogameBattleShip
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("DefaultFont");
+            font2 = Content.Load<SpriteFont>("Font2");
+
             fog = Content.Load<Texture2D>("fog");
             for (int i = 0; i < 40; i++)
             {
                 string imgName = i.ToString("D4");
                 waterImgs.Add(Content.Load<Texture2D>(imgName));
+            }
+
+            for (int i = 0; i < 18; i++)
+            {
+                string imgName = "frame_" + i.ToString("D2") + "_delay-0.1s";
+                Texture2D originalImage = Content.Load<Texture2D>(imgName);
+
+                // Get pixel data
+                Color[] pixels = new Color[originalImage.Width * originalImage.Height];
+                originalImage.GetData(pixels);
+
+                int transparentCount = 0;
+
+                for (int j = 0; j < pixels.Length; j++)
+                {
+                    if (pixels[j].A == 0)
+                    {
+                        transparentCount++;
+                    }
+                    else if (pixels[j].R == 223 && pixels[j].G == 223 && pixels[j].B == 223 && pixels[j].A == 255)
+                    {
+                        pixels[j] = new Color(0, 0, 0, 0); // Replace with transparent
+                        transparentCount++;
+                    }
+                }
+
+                Console.WriteLine($"Frame {i}: Transparent pixels: {transparentCount}");
+
+                // Create a new texture with modified pixels
+                Texture2D modifiedImage = new Texture2D(GraphicsDevice, originalImage.Width, originalImage.Height);
+                modifiedImage.SetData(pixels);
+
+                explosions.Add(modifiedImage);
             }
 
             brodovi["ship12"] = Content.Load<Texture2D>("ship12");
@@ -613,7 +621,19 @@ namespace MonogameBattleShip
                 { 15, 0 }
             };
 
-
+           
+            explosionCounter += animdirection;
+            explosionCounter %= 13*7;
+            if (explosionCounter >= 89) 
+            {
+                animdirection = -1;
+                explosionCounter = 88;
+            }
+            if (explosionCounter <= 30) 
+            {
+                animdirection = 1;
+                explosionCounter = 32;
+            }
             keyboard = Keyboard.GetState();
             currentMouseState = Mouse.GetState();
             tile_x = (currentMouseState.X - board_x) / (board_edge_pix / 10);
@@ -706,7 +726,8 @@ namespace MonogameBattleShip
                     }
                     if (b_exit.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
                     {
-                        Exit();
+                        screen = 400;
+                        //Exit();
                     }
                 }
                 // V.S. AI Sub-Menu
@@ -803,7 +824,7 @@ namespace MonogameBattleShip
                                 if (gueses_player[(int)(guess.Y), (int)(guess.X)] == 0)
                                 {
                                     gueses_player[(int)(guess.Y), (int)(guess.X)] = 1;
-
+                                    enemyFog[(int)(guess.Y), (int)(guess.X)] = 2;
                                     if (board_ai[(int)(guess.Y), (int)(guess.X)] == 0)
                                     {
                                         gueses_player[(int)(guess.Y), (int)(guess.X)] = 2;
@@ -816,6 +837,15 @@ namespace MonogameBattleShip
                             }
                         }
                     }
+                }
+                if (screen == 400)
+                {
+                    
+                }
+
+                if (screen == 500)
+                {
+
                 }
             }
             else
@@ -862,7 +892,8 @@ namespace MonogameBattleShip
 
             if (shiLengths.Count == 0)
             {
-                Exit();
+                screen = 400;
+                //Exit();
             }
 
 
@@ -1052,7 +1083,7 @@ namespace MonogameBattleShip
                     
                 }
 
-
+            
 
                 
 
@@ -1143,7 +1174,7 @@ namespace MonogameBattleShip
                         }
                         else if (gueses_ai[y, x] == 1)
                         {
-                            _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x + x * board_edge_pix / 10, board_y + y * board_edge_pix / 10, board_edge_pix / 10, board_edge_pix / 10), Color.Red);
+                            _spriteBatch.Draw(explosions[explosionCounter/7], new Rectangle(board_x + x * board_edge_pix / 10, board_y + y * board_edge_pix / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
                         }
 
                     }
@@ -1174,7 +1205,7 @@ namespace MonogameBattleShip
                         }
                         else if (gueses_player[y, x] == 1)
                         {
-                            _spriteBatch.Draw(_whiteTexture, new Rectangle(odvoj+board_x + x * board_edge_pix / 10, board_y + y * board_edge_pix / 10, board_edge_pix / 10, board_edge_pix / 10), Color.Red);
+                            _spriteBatch.Draw(explosions[explosionCounter/7], new Rectangle(odvoj+board_x + x * board_edge_pix / 10, board_y + y * board_edge_pix / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
                         }
 
                     }
@@ -1191,8 +1222,19 @@ namespace MonogameBattleShip
                     int xPos = board_x + (x * board_edge_pix) / 10;
                     _spriteBatch.Draw(_whiteTexture, new Rectangle(xPos, board_y, 2, board_edge_pix), Color.Black);
                 }
+
+                
             }
 
+            if (screen == 400)
+            {
+                _spriteBatch.DrawString(font2, "Izgubio si", new Vector2(400, 400), Color.White);
+            }
+
+            if (screen == 500)
+            {
+                _spriteBatch.DrawString(font2, "Pobedio si. ( Probaj tezi AI )", new Vector2(400, 400), Color.White);
+            }
             //_spriteBatch.Draw(_whiteTexture, new Rectangle(100, 100, 200, 100), Color.White);
 
             _spriteBatch.End();

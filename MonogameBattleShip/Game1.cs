@@ -1,13 +1,13 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices.Marshalling;
 using System.Xml;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 
 namespace MonogameBattleShip
 {
@@ -702,7 +702,14 @@ namespace MonogameBattleShip
                 explosionCounter = 32;
             }
 
-            tile_x = (currentMouseState.X - board_x) / (board_edge_pix / 10);
+            if (screen == 100)
+            {
+                tile_x = (currentMouseState.X - board_x) / (board_edge_pix / 10);
+            }
+            else
+            {
+                tile_x = (currentMouseState.X - board_x-odvoj) / (board_edge_pix / 10);
+            }
             tile_y = (currentMouseState.Y - board_y) / (board_edge_pix / 10);
             animationSlow -= 1;
             if (animationSlow == 0)
@@ -899,7 +906,7 @@ namespace MonogameBattleShip
                     bool canDo = true;
                     for (int j = 0; j < draggedShip.Length; j++)
                     {
-                        if (board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (draggedShip.Rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - draggedShip.Rotation) * j] != 0)
+                        if (board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (draggedShip.Rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - draggedShip.Rotation) * j] != 0 && board_player[(int)((currentMouseState.Y - board_y) / (board_edge_pix / 10)) + (draggedShip.Rotation) * j, (int)((currentMouseState.X - board_x) / (board_edge_pix / 10)) + (1 - draggedShip.Rotation) * j]!=draggedShip.Id)
                         {
                             canDo = false;
                             break;
@@ -1169,72 +1176,37 @@ namespace MonogameBattleShip
                     }
                 }
                 // Make water darker
-                foreach (var key in stats.Keys)
+                foreach (Ship cur in playerShips)
                 {
-                    bool nacrtao = false;
+                    float rotation = cur.Rotation == 0 ? MathF.PI / 2 : 0f;
+                    Vector2 origin = new Vector2(0, 0);
 
-                    
+                    origin = new Vector2(0, 0);
 
-                    for (int y = 0; y < 10; y++)
-                    {
-                        for (int x = 0; x < 10; x++)
-                        {
-                            if (stats[key][2] == 1 && board_player[y, x]==key)
-                            {
-                                _spriteBatch.Draw(brodovi["ship"+board_player[y, x].ToString()], new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix * (key % 10) / 10), Color.White);
-                                nacrtao = true;
 
-                            }
-                            else if (stats[key][2] == 0 && board_player[y, x] == key) // Horizontal (rotated)
-                            {
-                                int length = key % 10; // Ship length
-                                int tileSize = board_edge_pix / 10;
+                    int width = board_edge_pix / 10;
+                    int height = (board_edge_pix / 10) * cur.Length;
 
-                                Texture2D texture = brodovi["ship" + board_player[y, x].ToString()];
+                    int xOffset = 0;
 
-                                // Position where the ship starts drawing
-                                Vector2 position = new Vector2(board_x + ((x+length) * tileSize), board_y + (y * tileSize));
+                    if (cur.Rotation == 0)
+                        xOffset += (int)(cur.Length * board_edge_pix / 10);
 
-                                // We'll rotate 90° clockwise around the top-left of the ship
-                                float rotation = MathHelper.PiOver2;
+                    _spriteBatch.Draw(
+                        brodovi["ship" + cur.Id.ToString()],
+                        new Rectangle(xOffset+board_x + (cur.X * board_edge_pix) / 10, board_y + (cur.Y * board_edge_pix) / 10, width, height),
+                        null,
+                        Color.White,
+                        rotation,
+                        origin,
+                        SpriteEffects.None,
+                        0f
+                    );
 
-                                // Draw size in world space after rotation: length * tileSize width, 1 * tileSize height
-                                Rectangle destRect = new Rectangle(
-                                    (int)position.X,
-                                    (int)position.Y,
-                                    tileSize,
-                                    length * tileSize
-                                );
 
-                                // The origin shifts to the top-left corner to avoid weird offsets
-                                Vector2 origin = Vector2.Zero;
-
-                                _spriteBatch.Draw(
-                                    texture,
-                                    destRect,
-                                    null,
-                                    Color.White,
-                                    rotation,
-                                    origin,
-                                    SpriteEffects.None,
-                                    0f
-                                );
-
-                                nacrtao = true;
-                            }
-
-                            if (nacrtao)
-                            {
-                                break;
-                            }
-                        }
-                        if (nacrtao)
-                        {
-                            break;
-                        }
-                    }
-                    
                 }
+                    
+                
 
 
                 
@@ -1331,89 +1303,16 @@ namespace MonogameBattleShip
                             int sizeDif = 30;
                             Texture2D explosionTex = explosions[explosionCounter / 7];
 
-                            /*if (x != 9 && board_player[y, x + 1] == board_player[y, x])
-                            {
-                                // Ship to the right → horizontal squash
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(board_x - 2 + x * board_edge_pix / 10,
-                                                  board_y + sizeDif/2 + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10,
-                                                  board_edge_pix / 10 - sizeDif),
-                                    null,
-                                    Color.White,
-                                    0f,
-                                    Vector2.Zero,
-                                    SpriteEffects.None,
-                                    0f
-                                );
-                                continue;
-                            }
-
-                            if (x != 0 && board_player[y, x - 1] == board_player[y, x])
-                            {
-                                // Ship to the left → horizontal squash
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(board_x - 2 + x * board_edge_pix / 10,
-                                                  board_y + sizeDif/2 + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10,
-                                                  board_edge_pix / 10 - sizeDif),
-                                    null,
-                                    Color.White,
-                                    0f,
-                                    Vector2.Zero,
-                                    SpriteEffects.None,
-                                    0f
-                                );
-                            }
-                            else if (y != 0 && board_player[y - 1, x] == board_player[y, x])
-                            {
-                                // Ship above → vertical squash, rotated 90°
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(board_x-sizeDif/2 + (1+x) * board_edge_pix / 10,
-                                                  board_y + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10,
-                                                  board_edge_pix / 10-sizeDif),
-                                    null,
-                                    Color.White,
-                                    MathHelper.PiOver2, // 90 degrees
-                                    Vector2.Zero,
-                                    SpriteEffects.None,
-                                    0f
-                                );
-                            }
-                            else if (y != 9 && board_player[y + 1, x] == board_player[y, x])
-                            {
-                                // Ship below → vertical squash, rotated 90°
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(board_x -sizeDif/2 + (1+x) * board_edge_pix / 10,
-                                                  board_y + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10,
-                                                  board_edge_pix / 10-sizeDif),
-                                    null,
-                                    Color.White,
-                                    MathHelper.PiOver2, // 90 degrees
-                                    Vector2.Zero,
-                                    SpriteEffects.None,
-                                    0f
-                                );
-                            }
                             
-                            else
-                            {
-                            */
-                                // Full explosion
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(board_x + x * board_edge_pix / 10,
-                                                  board_y + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10,
-                                                  board_edge_pix / 10),
-                                    Color.White
-                                );
+                            // Full explosion
+                            _spriteBatch.Draw(
+                                explosionTex,
+                                new Rectangle(board_x + x * board_edge_pix / 10,
+                                                board_y + y * board_edge_pix / 10,
+                                                board_edge_pix / 10,
+                                                board_edge_pix / 10),
+                                Color.White
+                            );
                             
                         }
 

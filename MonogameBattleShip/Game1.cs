@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices.Marshalling;
 using System.Xml;
@@ -149,6 +150,7 @@ namespace MonogameBattleShip
         private SpriteFont font;
         private SpriteFont font2;
 
+        public Texture2D tex_button;
 
         public Button b_vsAi;
         public Button b_vsPlayer;
@@ -157,21 +159,25 @@ namespace MonogameBattleShip
         public Button b_NormalAi;
         public Button b_HardAi;
         public Button b_AiMainMenu;
+        public Button b_subStart;
 
         public Slider diff_slider;
         public int[,] hm;
         public float difficulty = -1f;
+
+        public List<int> notifs = new List<int> { };
 
         // Rendering sizes
         public Texture2D _whiteTexture;
         public Texture2D tex_VictoryScreen;
         public Texture2D tex_DefeatScreen;
         public Texture2D tex_menu;
+        public Texture2D tex_sunkBanner;
         public int screen = 0;
         public int ww = 1700;
         public int wh = 956;
         public int board_edge_pix = 640;
-
+        public Vector2 BestAI;
         // Boards
         public int[,] board_player;
         public int[,] board_ai;
@@ -224,7 +230,7 @@ namespace MonogameBattleShip
         public Button heatmapButton;
 
         public int previousScrollWheel = 0;
-
+        public Dictionary<int, bool> sunkenShips = new Dictionary<int, bool> { { 13, false }, { 12, false }, { 23, false }, { 14, false }, { 15, false } };
         // Textures
         public int waterFrame = 0;
         public int animationSlow = 50;
@@ -336,13 +342,13 @@ namespace MonogameBattleShip
                             int ny = y + dy[d];
                             if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && grid[ny, nx] == 0 && sunken[y,x]!=1)
                             {
-                                heatmap[ny, nx] += 40; // Bonus value can be tuned
+                                heatmap[ny, nx] += 70; // Bonus value can be tuned
                             }
                             nx += dx[d];
                             ny += dy[d];
                             if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && grid[ny, nx] == 0 && sunken[y, x] != 1)
                             {
-                                heatmap[ny, nx] += 25; // Bonus value can be tuned
+                                heatmap[ny, nx] += 40; // Bonus value can be tuned
                             }
                         }
                     }
@@ -373,7 +379,7 @@ namespace MonogameBattleShip
             return res;
         }
 
-        
+
 
         private List<Ship> ExtractShipsFromBoard(int[,] board)
         {
@@ -439,31 +445,29 @@ namespace MonogameBattleShip
         protected override void Initialize()
         {
             //gti
-            tex_menu = Content.Load<Texture2D>("main1");
-            x_img = Content.Load<Texture2D>("x");
+            BestAI = new Vector2(5,5);
             _whiteTexture = new Texture2D(GraphicsDevice, 1, 1);
             _whiteTexture.SetData(new[] { Color.White });
-
-            tex_DefeatScreen = Content.Load<Texture2D>("DefeatScreen");
-            tex_VictoryScreen = Content.Load<Texture2D>("VictoryScreen");
+            tex_button = Content.Load<Texture2D>("button");
+            notifs = new List<int> { };
             wasHoldingEsc = true;
 
-            b_vsAi = new Button(0.1f, 0.1f, 0.15f, 0.08f, "vs AI", _whiteTexture);
-            b_vsPlayer = new Button(0.1f, 0.23f, 0.15f, 0.08f, "vs Player", _whiteTexture);
-            b_exit = new Button(0.1f, 0.46f, 0.15f, 0.08f, "Exit", _whiteTexture);
+            b_vsAi = new Button(0.1f, 0.25f, 0.15f, 0.08f, "V.S. AI", tex_button);
+            b_vsPlayer = new Button(0.1f, 0.23f, 0.15f, 0.08f, "vs Player", tex_button);
+            b_exit = new Button(0.1f, 0.46f, 0.15f, 0.08f, "Exit", tex_button);
 
-            b_EasyAi = new Button(0.1f, 0.45f, 0.15f, 0.08f, "Start", _whiteTexture);
-            b_AiMainMenu = new Button(0.35f, 0.7f, 0.3f, 0.1f, "Main Menu", _whiteTexture);
-
+            b_EasyAi = new Button(0.1f, 0.45f, 0.15f, 0.08f, "Start", tex_button);
+            b_AiMainMenu = new Button(0.02f, 0.85f, 0.2f, 0.1f, "Main Menu", tex_button);
+            b_subStart = new Button(0.5f, 0.4f, 0.1f, 0.08f, "Start", tex_button);
             board_ai = new int[10, 10];
             board_player = AIPlace();// new int[10, 10];
             ship_counts = new int[] { 0, 0, 1, 2, 1, 1 };
-            heatmapButton = new Button(0.2f, 0.05f, 0.15f, 0.11f, "Toggle Heatmap", _whiteTexture);
+            heatmapButton = new Button(0.2f, 0.05f, 0.15f, 0.11f, "Toggle Heatmap", tex_button);
             endFade = 0;
             isMyTurn = true;
             waitForTurn = 0;
-            b_startGame = new Button(0.8f, 0.9f, 0.15f, 0.08f, "Start Game", _whiteTexture);
-
+            b_startGame = new Button(0.8f, 0.9f, 0.15f, 0.08f, "Start Game", tex_button);
+            sunkenShips = new Dictionary<int, bool> { { 13, false }, { 12, false }, { 23, false }, { 14, false }, { 15, false } };
             gueses_ai = new int[10, 10];
             gueses_player = new int[10, 10];
             sunken = new int[10, 10];
@@ -495,7 +499,7 @@ namespace MonogameBattleShip
                 }
             }
 
-            diff_slider = new Slider(GraphicsDevice, new Rectangle((int)(ww*0.1f)-20, (int)(0.35f*wh), 300, 30), 10);
+            diff_slider = new Slider(GraphicsDevice, new Rectangle((int)(ww*0.1f)-20, (int)(0.32f*wh), 300, 30), 10);
             hm = new int[10, 10];
             showHeatmap = false;
             base.Initialize();
@@ -506,7 +510,11 @@ namespace MonogameBattleShip
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("DefaultFont");
             font2 = Content.Load<SpriteFont>("Font2");
-
+            tex_DefeatScreen = Content.Load<Texture2D>("DefeatScreen");
+            tex_VictoryScreen = Content.Load<Texture2D>("VictoryScreen");
+            tex_sunkBanner = Content.Load<Texture2D>("SunkBanner");
+            tex_menu = Content.Load<Texture2D>("main1");
+            x_img = Content.Load<Texture2D>("x");
             fog = Content.Load<Texture2D>("fog");
             for (int i = 0; i < 40; i++)
             {
@@ -644,6 +652,12 @@ namespace MonogameBattleShip
         {
             keyboard = Keyboard.GetState();
             currentMouseState = Mouse.GetState();
+
+            for (int i = 0; i < notifs.Count; i++)
+            {
+                notifs[i] += 1;
+            }
+
             if (screen == 400)
             {
                 if (endFade > 128)
@@ -752,12 +766,9 @@ namespace MonogameBattleShip
             if (keyboard.IsKeyDown(Keys.Left))
             {
                 screen = 200;
+                wasHolding = true;
                 //dump(board_ai, "C:\\users\\luka9\\downloads\\board_ai.txt");
                 //dump(board_player, "C:\\users\\luka9\\downloads\\board_pl.txt");
-            }
-            if (keyboard.IsKeyDown(Keys.Right))
-            {
-                screen = 300;
             }
 
             if (keyboard.IsKeyDown(Keys.R))
@@ -796,11 +807,7 @@ namespace MonogameBattleShip
                         playerShips = ExtractShipsFromBoard(board_player);
                         wasHolding = true;
                     }
-                    if (b_vsPlayer.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
-                    {
-                        screen = 2;
-                        wasHolding = true;
-                    }
+
                     if (b_exit.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
                     {
                         //screen = 400;
@@ -828,6 +835,11 @@ namespace MonogameBattleShip
                 // Placer
                 if (screen == 100)
                 {
+                    if (b_subStart.Update(currentMouseState.X, currentMouseState.Y, ww, wh))
+                    {
+                        screen = 200;
+                        wasHolding = true;
+                    }
                     if (tile_x >= 0 && tile_x < 10 && tile_y >= 0 && tile_y < 10 && wasHolding == false)
                     {
                         for (int i = 0; i < playerShips.Count; i++)
@@ -873,7 +885,7 @@ namespace MonogameBattleShip
                     }
 
 
-                    if (tile_x >= 0 && tile_x < 10 && tile_y >= 0 && tile_y < 10 && isMyTurn)
+                    if (tile_x >= 0 && tile_x < 10 && tile_y >= 0 && tile_y < 10 && isMyTurn && wasHolding==false)
                     {
                         Vector2 guess = new Vector2((currentMouseState.X - board_x-odvoj) / (board_edge_pix / 10), (currentMouseState.Y - board_y) / (board_edge_pix / 10));
                         bool nasli = false;
@@ -1010,8 +1022,13 @@ namespace MonogameBattleShip
                 }
                 else
                 {
-
+                    if (sunkenShips[key] == false)
+                    {
+                        sunkenShips[key] = true;
+                        notifs.Add(0);
+                    }
                 }
+                
             }
 
             if (shiLengths2.Count == 0)
@@ -1037,8 +1054,8 @@ namespace MonogameBattleShip
                     Vector2 guess_ai;
                     if (value < diff_slider.value)
                     {
-                        hm = GenerateHeatmap(gueses_ai, shiLengths, sunken);
-                        guess_ai = getBest(hm);
+                        
+                        guess_ai = BestAI;
                     }
                     else
                     {
@@ -1058,6 +1075,7 @@ namespace MonogameBattleShip
                             gueses_ai[gys, gxs] = 1;
                         }
                         hm = GenerateHeatmap(gueses_ai, shiLengths, sunken);
+                        BestAI = getBest(hm);
                         break;
                     }
                     
@@ -1085,7 +1103,7 @@ namespace MonogameBattleShip
         protected override void Draw(GameTime gameTime)
         {
             //gtd
-            GraphicsDevice.Clear(Color.Gray); // Red background
+            GraphicsDevice.Clear(Color.Gray);
             odvoj = (int)(board_edge_pix * 1.2f);
             _spriteBatch.Begin();
 
@@ -1118,7 +1136,7 @@ namespace MonogameBattleShip
             {
                 _spriteBatch.Draw(tex_menu, new Rectangle(0, 0, ww, wh), Color.White);
                 b_vsAi.Draw(_spriteBatch, font, ww, wh);
-                b_vsPlayer.Draw(_spriteBatch, font, ww, wh);
+                //b_vsPlayer.Draw(_spriteBatch, font, ww, wh);
                 b_exit.Draw(_spriteBatch, font, ww, wh);
                 _spriteBatch.DrawString(font, "Luka Markovic &", new Vector2(ww - 200, wh - 80), Color.Black);
                 _spriteBatch.DrawString(font, "Stribor Pavlovic", new Vector2(ww - 200, wh - 50), Color.Black);
@@ -1135,6 +1153,8 @@ namespace MonogameBattleShip
 
             if (screen == 100)
             {
+                _spriteBatch.Draw(tex_menu, new Rectangle(0, 0, ww, wh), Color.White);
+                b_subStart.Draw(_spriteBatch,font,ww,wh);
                 for (int y = 0; y < 10; y++)
                 {
                     for (int x = 0; x < 10; x++)
@@ -1217,6 +1237,7 @@ namespace MonogameBattleShip
             }
             if (screen == 200 || (screen==400 && endFade<64) || (screen==500 && endFade<64))
             {
+                _spriteBatch.Draw(tex_menu, new Rectangle(0, 0, ww, wh), Color.White);
                 for (int y = 0; y < 10; y++)
                 {
                     for (int x = 0; x < 10; x++)
@@ -1224,6 +1245,8 @@ namespace MonogameBattleShip
                         _spriteBatch.Draw(waterImgs[waterframes_player[y,x]], new Rectangle(board_x + (x * board_edge_pix) / 10, board_y + (y * board_edge_pix) / 10, board_edge_pix / 10, board_edge_pix / 10), Color.White);
                     }
                 }
+
+                
                 // Make water darker
                 foreach (Ship cur in playerShips)
                 {
@@ -1279,7 +1302,7 @@ namespace MonogameBattleShip
                             new Rectangle(tileX, tileY, tileSize, tileSize),
                             Color.White
                         );
-
+                        
                         if (enemyFog[y, x] == 0)
                         {
                             for (int leoverlap = 0; leoverlap < 2; leoverlap++)
@@ -1311,7 +1334,7 @@ namespace MonogameBattleShip
                                 // Fog from BOTTOM edge (extends upward)
                                 _spriteBatch.Draw(
                                     fog,
-                                    new Rectangle(tileX, tileSize, tileSize, tileSize),
+                                    new Rectangle(tileX+tileSize, tileY + tileSize, tileSize, tileSize),
                                     null,
                                     Color.White * 0.5f,
                                     MathHelper.Pi,
@@ -1368,7 +1391,8 @@ namespace MonogameBattleShip
                     }
                 }
 
-                _spriteBatch.Draw(_whiteTexture, new Rectangle(0,0, board_edge_pix*3, 70), Color.Gray);
+             
+                
 
                 for (int y = 0; y <= 10; y++)
                 {
@@ -1394,94 +1418,23 @@ namespace MonogameBattleShip
 
 
                             Texture2D explosionTex = explosions[explosionCounter / 7];
-                            /*
-                            if (x != 9 && board_ai[y, x + 1] == board_ai[y, x])
-                            {
-                                // Ship to the right → horizontal squash
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(odvoj+board_x - 3 + x * board_edge_pix / 10,
-                                                  board_y + 10 + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10+6,
-                                                  board_edge_pix / 10 - 20),
-                                    null,
-                                    Color.White,
-                                    0f,
-                                    Vector2.Zero,
-                                    SpriteEffects.None,
-                                    0f
-                                );
-                                continue;
-                            }
-
-                            if (x != 0 && board_ai[y, x - 1] == board_ai[y, x])
-                            {
-                                // Ship to the left → horizontal squash
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(odvoj + board_x - 2 + x * board_edge_pix / 10,
-                                                  board_y + 10 + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10 + 6,
-                                                  board_edge_pix / 10 - 20),
-                                    null,
-                                    Color.White,
-                                    0f,
-                                    Vector2.Zero,
-                                    SpriteEffects.None,
-                                    0f
-                                );
-                            }
-                            else if (y != 0 && board_ai[y - 1, x] == board_ai[y, x])
-                            {
-                                // Ship above → vertical squash, rotated 90°
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(odvoj + board_x - 10 + (1 + x) * board_edge_pix / 10,
-                                                  board_y + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10 + 6,
-                                                  board_edge_pix / 10 - 20),
-                                    null,
-                                    Color.White,
-                                    MathHelper.PiOver2, // 90 degrees
-                                    Vector2.Zero,
-                                    SpriteEffects.None,
-                                    0f
-                                );
-                            }
-                            else if (y != 9 && board_ai[y + 1, x] == board_ai[y, x])
-                            {
-                                // Ship below → vertical squash, rotated 90°
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(odvoj + board_x - 10 + (1 + x) * board_edge_pix / 10,
-                                                  board_y + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10 + 6,
-                                                  board_edge_pix / 10 - 20),
-                                    null,
-                                    Color.White,
-                                    MathHelper.PiOver2, // 90 degrees
-                                    Vector2.Zero,
-                                    SpriteEffects.None,
-                                    0f
-                                );
-                            }
-                            else
-                            {
-                            */
-                                // Full explosion
-                                _spriteBatch.Draw(
-                                    explosionTex,
-                                    new Rectangle(odvoj + board_x + x * board_edge_pix / 10,
-                                                  board_y + y * board_edge_pix / 10,
-                                                  board_edge_pix / 10 + 6,
-                                                  board_edge_pix / 10),
-                                    Color.White
-                                );
+                            
+                            // Full explosion
+                            _spriteBatch.Draw(
+                                explosionTex,
+                                new Rectangle(odvoj + board_x + x * board_edge_pix / 10,
+                                                board_y + y * board_edge_pix / 10,
+                                                board_edge_pix / 10 + 6,
+                                                board_edge_pix / 10),
+                                Color.White
+                            );
                             
                         }
 
                     }
                 }
+
+                
 
                 for (int y = 0; y <= 10; y++)
                 {
@@ -1503,9 +1456,32 @@ namespace MonogameBattleShip
                     {
                         for (int x = 0; x < 10; x++)
                         {
-                            Color newCol = new Color(100 + (int)(Math.Pow((hm[y,x]/2),2.2f)), 0, 0, 128);
+                            Color newCol = new Color(100 + (int)(Math.Pow((hm[y, x] / 2), 2.2f)), 0, 0, 128);
+                            if (BestAI.X == x && BestAI.Y == y)
+                            {
+                                newCol = new Color(0, 255, 0, 128);
+                            }
+                            
                             _spriteBatch.Draw(_whiteTexture, new Rectangle(board_x+x*board_edge_pix/10, board_y+y*board_edge_pix/10, board_edge_pix/10, board_edge_pix/10), newCol);
                         }
+                    }
+                }
+
+                for (int i = 0; i < notifs.Count; i++)
+                {
+                    if (notifs[i] < 32)
+                    {
+                        Color newcol2 = new Color(255, 255, 255, notifs[i]*8);
+                        _spriteBatch.Draw(tex_sunkBanner, new Rectangle(ww / 2 - 230, -30+ notifs[i], 460, 270), newcol2);
+                    }
+                    else if (notifs[i] < 202 && notifs[i]>150)
+                    {
+                        Color newcol2 = new Color(255, 255, 255, (int)((182-notifs[i]) * 4.5));
+                        _spriteBatch.Draw(tex_sunkBanner, new Rectangle(ww / 2 - 230, (150 - notifs[i])*4, 460, 270), newcol2);
+                    }
+                    else if (notifs[i] < 150)
+                    {
+                        _spriteBatch.Draw(tex_sunkBanner, new Rectangle(ww / 2 - 230, 0, 460, 270), Color.White);
                     }
                 }
 

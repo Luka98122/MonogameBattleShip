@@ -173,6 +173,7 @@ namespace MonogameBattleShip
         public Texture2D tex_DefeatScreen;
         public Texture2D tex_menu;
         public Texture2D tex_sunkBanner;
+        public Texture2D tex_logo;
         public int screen = 0;
         public int ww = 1700;
         public int wh = 956;
@@ -210,7 +211,7 @@ namespace MonogameBattleShip
         private Button b_startGame;
         public bool wasHoldingEsc = true;
         private int[] ship_counts = new int[] { 0, 0, 1, 2, 1, 1 };
-
+        
         // Input stuff
         private Vector2 placePos = new Vector2();
         private MouseState currentMouseState;
@@ -513,6 +514,7 @@ namespace MonogameBattleShip
             tex_DefeatScreen = Content.Load<Texture2D>("DefeatScreen");
             tex_VictoryScreen = Content.Load<Texture2D>("VictoryScreen");
             tex_sunkBanner = Content.Load<Texture2D>("SunkBanner");
+            tex_logo = Content.Load<Texture2D>("Battleship-logo");
             tex_menu = Content.Load<Texture2D>("main1");
             x_img = Content.Load<Texture2D>("x");
             fog = Content.Load<Texture2D>("fog");
@@ -1135,6 +1137,7 @@ namespace MonogameBattleShip
             if (screen == 0)
             {
                 _spriteBatch.Draw(tex_menu, new Rectangle(0, 0, ww, wh), Color.White);
+                _spriteBatch.Draw(tex_logo, new Rectangle((int)(0.035f * ww), (int)(0.015f * wh), (int)(0.28f * ww), (int)(0.28f * wh)), Color.White);
                 b_vsAi.Draw(_spriteBatch, font, ww, wh);
                 //b_vsPlayer.Draw(_spriteBatch, font, ww, wh);
                 b_exit.Draw(_spriteBatch, font, ww, wh);

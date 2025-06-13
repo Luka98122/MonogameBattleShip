@@ -271,16 +271,6 @@ namespace MonogameBattleShip
             gueses_ai = new int[10, 10];
             gueses_player = new int[10, 10];
             sunken = new int[10, 10];
-            for (int y = 0; y < 10; y++)
-            {
-                for (int x = 0; x < 10; x++)
-                {
-                    if ((x + y) % 2 == 0)
-                    {
-                        player_layout[y, x] = 0;
-                    }
-                }
-            }
 
             ai_layout = PlaceRandomShips();
             
